@@ -1,18 +1,18 @@
-1 1 == 48 + putchar # 1
-1 0 == 48 + putchar # 0
+1 1 == 48 + putchar // 1
+1 0 == 48 + putchar // 0
 
-1 0 > 48 + putchar # 1
-0 1 > 48 + putchar # 0
+1 0 > 48 + putchar // 1
+0 1 > 48 + putchar // 0
 
-0 1 < 48 + putchar # 1
-1 0 < 48 + putchar # 0
+0 1 < 48 + putchar // 1
+1 0 < 48 + putchar // 0
 
-1 1 >= 48 + putchar # 1
-0 1 >= 48 + putchar # 0
-1 0 >= 48 + putchar # 1
+1 1 >= 48 + putchar // 1
+0 1 >= 48 + putchar // 0
+1 0 >= 48 + putchar // 1
 
-1 0 <= 48 + putchar # 0
-1 1 <= 48 + putchar # 1
-2 1 <= 48 + putchar # 0
+1 0 <= 48 + putchar // 0
+1 1 <= 48 + putchar // 1
+2 1 <= 48 + putchar // 0
 
-10  putchar # '\n'
+10  putchar // '\n'

@@ -1,9 +1,12 @@
 126
-while dup 31 > do
+while dup 31 > do {
     dup putchar
-    0 if
+    0 if {
         100 putchar
-    end
+    } else {
+        
+    }
     1 -
-loop
-10  putchar # '\n'
+    0 if {} else {}
+}
+10  putchar // '\n'

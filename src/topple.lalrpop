@@ -1,0 +1,85 @@
+use crate::{
+    tokens::Token,
+    lexer::LexicalError,
+    ast::*,
+};
+
+use lalrpop_util::ErrorRecovery;
+
+grammar<'input, 'err>(input: &'input str, errors: &'err mut Vec<ErrorRecovery<usize, Token, LexicalError>>);
+
+pub SourceUnit: SourceUnit = {
+    Expr* => SourceUnit { exprs: <> }
+}
+
+Expr: Expr = {
+    <l:@L> "if" "{" <then_exprs:Expr*> "}" <maybe_else_exprs:Else?> <r:@R> => Expr {
+        location: (l, r),
+        node: ExprKind::Conditional { then_exprs, maybe_else_exprs }
+    },
+    <l:@L> "while" <while_exprs:Expr2*> "do" "{" <do_exprs:Expr*> "}" <r:@R> => Expr {
+        location: (l, r),
+        node: ExprKind::While { while_exprs, do_exprs }
+    },
+    <Expr2> => <>,
+}
+
+Else: Vec<Expr> = {
+   <l:@L> "else" "{" <ops:Expr*> "}" <r:@R> => ops, 
+}
+
+Expr2: Expr = {
+    <l:@L> <expr:Expr3> <r:@R> => Expr {
+        location: (l, r),
+        node: expr,
+    }
+}
+
+Expr3: ExprKind = {
+    "integer" => ExprKind::Integer(<>),
+
+    "==" => ExprKind::Eq,
+    ">=" => ExprKind::Gte,
+    "<=" => ExprKind::Lte,
+    ">" => ExprKind::Gt,
+    "<" => ExprKind::Lt,
+
+    "+" => ExprKind::Add,
+    "-" => ExprKind::Sub,
+    "*" => ExprKind::Mul,
+    "/" => ExprKind::Div,
+
+    "putchar" => ExprKind::Putchar,
+    "dup" => ExprKind::Dup,
+}
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "if" => Token::If,
+        "else" => Token::Else,
+        "while" => Token::While,
+        "do" => Token::Do,
+
+        "{" => Token::LCurlyBracket,
+        "}" => Token::RCurlyBracket,
+        
+        "integer" => Token::Integer(<u64>),
+
+        "==" => Token::Eq,
+        ">=" => Token::Gte,
+        "<=" => Token::Lte,
+        ">" => Token::Gt,
+        "<" => Token::Lt,
+
+        "+" => Token::Add,
+        "-" => Token::Sub,
+        "*" => Token::Mul,
+        "/" => Token::Div,
+
+        "putchar" => Token::Putchar,
+        "dup" => Token::Dup,
+    }
+}

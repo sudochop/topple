@@ -1,6 +1,12 @@
 #!/bin/bash
 cargo build
 diff <(./target/debug/topple top/putchar.top -j) <(echo "Hello, world!")
+diff <(./llc.sh putchar) <(echo "Hello, world!")
 diff <(./target/debug/topple top/compare.top -j) <(echo "101010101010")
+diff <(./llc.sh compare) <(echo "101010101010")
 diff <(./target/debug/topple top/conditional.top -j) <(echo "Hello, sailor!")
+diff <(./llc.sh conditional) <(echo "Hello, sailor!")
 diff <(./target/debug/topple top/math.top -j) <(echo "ABCD")
+diff <(./llc.sh math) <(echo "ABCD")
+diff <(./target/debug/topple top/loop.top -j) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
+diff <(./llc.sh loop) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
