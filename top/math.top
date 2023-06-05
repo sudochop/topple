@@ -1,0 +1,6 @@
+0 1 + 64 + putchar # A
+1 0 - 65 + putchar # B
+33 2 * 1 + putchar # C
+136 2 / putchar    # D
+
+10  putchar # '\n'

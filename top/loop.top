@@ -1,0 +1,9 @@
+126
+while dup 31 > do
+    dup putchar
+    0 if
+        100 putchar
+    end
+    1 -
+loop
+10  putchar # '\n'
