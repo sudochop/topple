@@ -113,6 +113,199 @@ impl<'ctx> Compiler<'ctx> {
             "putchar",
         );
     }
+
+    fn compile_exprs(&self, exprs: &Vec<Expr>) {
+        let main_fn = self.module.get_function("main").unwrap();
+    
+        for located in exprs {
+            match &located.node {
+                ExprKind::Integer(i) => {
+                    let val = self.context.i64_type().const_int(*i, false);
+                    self.push(val);
+                }
+                ExprKind::Add => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let result = self.builder.build_int_add(s1, s2, "add");
+    
+                    self.push(result);
+                }
+                ExprKind::Sub => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let result = self.builder.build_int_sub(s2, s1, "sub");
+    
+                    self.push(result);
+                }
+                ExprKind::Mul => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let result = self.builder.build_int_mul(s2, s1, "sub");
+    
+                    self.push(result);
+                }
+                ExprKind::Div => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let result = self.builder.build_int_unsigned_div(s2, s1, "sub");
+    
+                    self.push(result);
+                }
+                ExprKind::Eq => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let bool = self
+                        .builder
+                        .build_int_compare(IntPredicate::EQ, s2, s1, "ugt");
+                    let result =
+                        self.builder
+                            .build_int_cast_sign_flag(bool, self.context.i64_type(), false, "cast");
+    
+                    self.push(result);
+                }
+                ExprKind::Gt => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let bool = self
+                        .builder
+                        .build_int_compare(IntPredicate::UGT, s2, s1, "ugt");
+                    let result =
+                        self.builder
+                            .build_int_cast_sign_flag(bool, self.context.i64_type(), false, "cast");
+    
+                    self.push(result);
+                }
+                ExprKind::Gte => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let bool = self
+                        .builder
+                        .build_int_compare(IntPredicate::UGE, s2, s1, "ugt");
+                    let result =
+                        self.builder
+                            .build_int_cast_sign_flag(bool, self.context.i64_type(), false, "cast");
+    
+                    self.push(result);
+                }
+                ExprKind::Lt => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let bool = self
+                        .builder
+                        .build_int_compare(IntPredicate::ULT, s2, s1, "ult");
+                    let result =
+                        self.builder
+                            .build_int_cast_sign_flag(bool, self.context.i64_type(), false, "cast");
+    
+                    self.push(result);
+                }
+                ExprKind::Lte => {
+                    let s1 = self.pop();
+                    let s2 = self.pop();
+    
+                    let bool = self
+                        .builder
+                        .build_int_compare(IntPredicate::ULE, s2, s1, "ult");
+                    let result =
+                        self.builder
+                            .build_int_cast_sign_flag(bool, self.context.i64_type(), false, "cast");
+    
+                    self.push(result);
+                }
+                ExprKind::Putchar => {
+                    let s1 = self.pop();
+    
+                    self.putchar(s1);
+                }
+                ExprKind::Dup => {
+                    let s1 = self.pop();
+    
+                    self.push(s1);
+                    self.push(s1);
+                }
+                ExprKind::Conditional {
+                    then_exprs,
+                    maybe_else_exprs,
+                } => {
+                    let s1 = self.pop();
+    
+                    let then_block = self.context.append_basic_block(main_fn, "then_block");
+                    let else_block = self.context.append_basic_block(main_fn, "else_block");
+                    let cont_block = self.context.append_basic_block(main_fn, "cont_block");
+    
+                    let cond =
+                        self.builder
+                            .build_int_cast_sign_flag(s1, self.context.bool_type(), false, "cast");
+                    self.builder
+                        .build_conditional_branch(cond, then_block, else_block);
+    
+                    self.builder.position_at_end(then_block);
+                    self.compile_exprs(then_exprs);
+                    if self
+                        .builder
+                        .get_insert_block()
+                        .unwrap()
+                        .get_terminator()
+                        .is_none()
+                    {
+                        self.builder.build_unconditional_branch(cont_block);
+                    }
+    
+                    self.builder.position_at_end(else_block);
+                    if let Some(else_exprs) = maybe_else_exprs {
+                        self.compile_exprs(else_exprs);
+                        if self
+                            .builder
+                            .get_insert_block()
+                            .unwrap()
+                            .get_terminator()
+                            .is_none()
+                        {
+                            self.builder.build_unconditional_branch(cont_block);
+                        }
+                    } else {
+                        self.builder.build_unconditional_branch(cont_block);
+                    }
+    
+                    self.builder.position_at_end(cont_block);
+                }
+                ExprKind::While {
+                    while_exprs,
+                    do_exprs,
+                } => {
+                    let check_block = self.context.append_basic_block(main_fn, "check_block");
+                    let body_block = self.context.append_basic_block(main_fn, "body_block");
+                    let cont_block = self.context.append_basic_block(main_fn, "cont_block");
+    
+                    self.builder.build_unconditional_branch(check_block);
+    
+                    self.builder.position_at_end(check_block);
+                    self.compile_exprs(while_exprs);
+                    let s1 = self.pop();
+    
+                    let cond =
+                        self.builder
+                            .build_int_cast_sign_flag(s1, self.context.bool_type(), false, "cast");
+                    self.builder
+                        .build_conditional_branch(cond, body_block, cont_block);
+    
+                    self.builder.position_at_end(body_block);
+                    self.compile_exprs(do_exprs);
+                    self.builder.build_unconditional_branch(check_block);
+    
+                    self.builder.position_at_end(cont_block);
+                }
+            }
+        }
+    }
 }
 
 fn main() {
@@ -125,12 +318,20 @@ fn main() {
     let lexer = Lexer::new(&input[..]);
     let parser = SourceUnitParser::new();
     let mut errors = Vec::new();
-    let ast = parser.parse(&input, &mut errors, lexer).unwrap();
+    let ast = parser.parse(&input, &mut errors, lexer).map_err(|e| match e {
+        lalrpop_util::ParseError::InvalidToken { .. } => todo!(),
+        lalrpop_util::ParseError::UnrecognizedEof { .. } => todo!(),
+        lalrpop_util::ParseError::UnrecognizedToken { .. } => todo!(),
+        lalrpop_util::ParseError::ExtraToken { .. } => todo!(),
+        lalrpop_util::ParseError::User { error } => match error {
+            lexer::LexicalError::InvalidToken { span } => { dbg!(span); todo!() },
+        },
+    }).unwrap();
 
     let context = Context::create();
     let tc = Compiler::new(&context, "main");
 
-    compile_exprs(&ast.exprs, &tc);
+    tc.compile_exprs(&ast.exprs);
 
     let ret_ty = tc.context.i64_type();
     let ret_val = ret_ty.const_int(0, false);
@@ -155,195 +356,4 @@ fn main() {
     }
 }
 
-fn compile_exprs(exprs: &Vec<Expr>, tc: &Compiler) {
-    let main_fn = tc.module.get_function("main").unwrap();
 
-    for located in exprs {
-        match &located.node {
-            ExprKind::Integer(i) => {
-                let val = tc.context.i64_type().const_int(*i, false);
-                tc.push(val);
-            }
-            ExprKind::Add => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let result = tc.builder.build_int_add(s1, s2, "add");
-
-                tc.push(result);
-            }
-            ExprKind::Sub => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let result = tc.builder.build_int_sub(s2, s1, "sub");
-
-                tc.push(result);
-            }
-            ExprKind::Mul => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let result = tc.builder.build_int_mul(s2, s1, "sub");
-
-                tc.push(result);
-            }
-            ExprKind::Div => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let result = tc.builder.build_int_unsigned_div(s2, s1, "sub");
-
-                tc.push(result);
-            }
-            ExprKind::Eq => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let bool = tc
-                    .builder
-                    .build_int_compare(IntPredicate::EQ, s2, s1, "ugt");
-                let result =
-                    tc.builder
-                        .build_int_cast_sign_flag(bool, tc.context.i64_type(), false, "cast");
-
-                tc.push(result);
-            }
-            ExprKind::Gt => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let bool = tc
-                    .builder
-                    .build_int_compare(IntPredicate::UGT, s2, s1, "ugt");
-                let result =
-                    tc.builder
-                        .build_int_cast_sign_flag(bool, tc.context.i64_type(), false, "cast");
-
-                tc.push(result);
-            }
-            ExprKind::Gte => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let bool = tc
-                    .builder
-                    .build_int_compare(IntPredicate::UGE, s2, s1, "ugt");
-                let result =
-                    tc.builder
-                        .build_int_cast_sign_flag(bool, tc.context.i64_type(), false, "cast");
-
-                tc.push(result);
-            }
-            ExprKind::Lt => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let bool = tc
-                    .builder
-                    .build_int_compare(IntPredicate::ULT, s2, s1, "ult");
-                let result =
-                    tc.builder
-                        .build_int_cast_sign_flag(bool, tc.context.i64_type(), false, "cast");
-
-                tc.push(result);
-            }
-            ExprKind::Lte => {
-                let s1 = tc.pop();
-                let s2 = tc.pop();
-
-                let bool = tc
-                    .builder
-                    .build_int_compare(IntPredicate::ULE, s2, s1, "ult");
-                let result =
-                    tc.builder
-                        .build_int_cast_sign_flag(bool, tc.context.i64_type(), false, "cast");
-
-                tc.push(result);
-            }
-            ExprKind::Putchar => {
-                let s1 = tc.pop();
-
-                tc.putchar(s1);
-            }
-            ExprKind::Dup => {
-                let s1 = tc.pop();
-
-                tc.push(s1);
-                tc.push(s1);
-            }
-            ExprKind::Conditional {
-                then_exprs,
-                maybe_else_exprs,
-            } => {
-                let s1 = tc.pop();
-
-                let then_block = tc.context.append_basic_block(main_fn, "then_block");
-                let else_block = tc.context.append_basic_block(main_fn, "else_block");
-                let cont_block = tc.context.append_basic_block(main_fn, "cont_block");
-
-                let cond =
-                    tc.builder
-                        .build_int_cast_sign_flag(s1, tc.context.bool_type(), false, "cast");
-                tc.builder
-                    .build_conditional_branch(cond, then_block, else_block);
-
-                tc.builder.position_at_end(then_block);
-                compile_exprs(then_exprs, tc);
-                if tc
-                    .builder
-                    .get_insert_block()
-                    .unwrap()
-                    .get_terminator()
-                    .is_none()
-                {
-                    tc.builder.build_unconditional_branch(cont_block);
-                }
-
-                tc.builder.position_at_end(else_block);
-                if let Some(else_exprs) = maybe_else_exprs {
-                    compile_exprs(else_exprs, tc);
-                    if tc
-                        .builder
-                        .get_insert_block()
-                        .unwrap()
-                        .get_terminator()
-                        .is_none()
-                    {
-                        tc.builder.build_unconditional_branch(cont_block);
-                    }
-                } else {
-                    tc.builder.build_unconditional_branch(cont_block);
-                }
-
-                tc.builder.position_at_end(cont_block);
-            }
-            ExprKind::While {
-                while_exprs,
-                do_exprs,
-            } => {
-                let check_block = tc.context.append_basic_block(main_fn, "check_block");
-                let body_block = tc.context.append_basic_block(main_fn, "body_block");
-                let cont_block = tc.context.append_basic_block(main_fn, "cont_block");
-
-                tc.builder.build_unconditional_branch(check_block);
-
-                tc.builder.position_at_end(check_block);
-                compile_exprs(while_exprs, tc);
-                let s1 = tc.pop();
-
-                let cond =
-                    tc.builder
-                        .build_int_cast_sign_flag(s1, tc.context.bool_type(), false, "cast");
-                tc.builder
-                    .build_conditional_branch(cond, body_block, cont_block);
-
-                tc.builder.position_at_end(body_block);
-                compile_exprs(do_exprs, tc);
-                tc.builder.build_unconditional_branch(check_block);
-
-                tc.builder.position_at_end(cont_block);
-            }
-        }
-    }
-}

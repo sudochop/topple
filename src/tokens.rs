@@ -1,5 +1,6 @@
 use logos::Logos;
 
+#[allow(dead_code)]
 pub enum LexicalError {
   InvalidToken { tok: char },
 }
