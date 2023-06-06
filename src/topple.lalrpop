@@ -50,7 +50,15 @@ Expr3: ExprKind = {
     "/" => ExprKind::Div,
 
     "putchar" => ExprKind::Putchar,
+
     "dup" => ExprKind::Dup,
+    "dup2" => ExprKind::Dup2,
+    "swap" => ExprKind::Swap,
+    "over" => ExprKind::Over,
+
+    "mem" => ExprKind::Mem,
+    "write" => ExprKind::Write,
+    "read" => ExprKind::Read,
 }
 
 extern {
@@ -80,6 +88,14 @@ extern {
         "/" => Token::Div,
 
         "putchar" => Token::Putchar,
+
         "dup" => Token::Dup,
+        "dup2" => Token::Dup2,
+        "swap" => Token::Swap,
+        "over" => Token::Over,
+
+        "mem" => Token::Mem,
+        "write" => Token::Write,
+        "read" => Token::Read,
     }
 }

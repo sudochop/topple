@@ -25,7 +25,15 @@ pub enum ExprKind {
     Div,
 
     Putchar,
+
     Dup,
+    Dup2,
+    Swap,
+    Over,
+
+    Mem,
+    Write,
+    Read,
 
     Conditional {
         then_exprs: Vec<Expr>,

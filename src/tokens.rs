@@ -18,8 +18,6 @@ pub enum Token {
     #[token("do")]
     Do,
 
-
-
     #[regex(r"\d+", |lex| lex.slice().parse::<u64>().unwrap())]
     Integer(u64),
 
@@ -53,4 +51,18 @@ pub enum Token {
 
     #[token("dup")]
     Dup,
+    #[token("dup2")]
+    Dup2,
+    #[token("swap")]
+    Swap,
+    #[token("over")]
+    Over,
+
+
+    #[token("mem")]
+    Mem,
+    #[token("write")]
+    Write,
+    #[token("read")]
+    Read,
 }
