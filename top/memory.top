@@ -1,33 +1,17 @@
-// Example in one go
-//
-// 126
-// while dup 31 > do {
-//     dup       // n n
-//     mem +     // n <addr>
-//     dup2      // n <addr> n <addr>
-//     swap      // n <addr> <addr> n
-//     write     // n <addr>
-//     read      // n <val>
-//     putchar   // n
-//     1 -
-// }
-
-// Doing in two goes to make sure nothing fishy is going on.
-
 126
-while dup 31 > do {
+while dup 31 > {
     dup       // n n
     mem +     // n <addr>
     over      // n <addr> n
-    write     // n
+    store     // n
     1 -
 }
 
 126
-while dup 31 > do {
+while dup 31 > {
     dup       // n n
     mem +     // n <addr>
-    read      // n <val>
+    load      // n <val>
     putchar   // n
     1 -
 }

@@ -15,8 +15,6 @@ pub enum Token {
     Else,
     #[token("while")]
     While,
-    #[token("do")]
-    Do,
 
     #[regex(r"\d+", |lex| lex.slice().parse::<u64>().unwrap())]
     Integer(u64),
@@ -37,6 +35,9 @@ pub enum Token {
     #[token("<")]
     Lt,
 
+    #[token("or")]
+    Or,
+
     #[token("+")]
     Add,
     #[token("-")]
@@ -48,21 +49,28 @@ pub enum Token {
 
     #[token("putchar")]
     Putchar,
+    #[token("putint")]
+    Putint,
+    #[token("dbg")]
+    Dbg,
 
     #[token("dup")]
     Dup,
-    #[token("dup2")]
-    Dup2,
     #[token("swap")]
     Swap,
     #[token("over")]
     Over,
+    #[token("rot")]
+    Rot,
+
+    #[token("pop")]
+    Pop,
 
 
     #[token("mem")]
     Mem,
-    #[token("write")]
-    Write,
-    #[token("read")]
-    Read,
+    #[token("store")]
+    Store,
+    #[token("load")]
+    Load,
 }

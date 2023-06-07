@@ -19,21 +19,27 @@ pub enum ExprKind {
     Gt,
     Lt,
 
+    Or,
+
     Add,
     Sub,
     Mul,
     Div,
 
     Putchar,
+    Putint,
+    Dbg,
 
     Dup,
-    Dup2,
     Swap,
     Over,
+    Rot,
+
+    Pop,
 
     Mem,
-    Write,
-    Read,
+    Store,
+    Load,
 
     Conditional {
         then_exprs: Vec<Expr>,

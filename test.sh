@@ -12,3 +12,5 @@ diff <(./target/debug/topple top/loop.top -j) <(echo $'~}|{zyxwvutsrqponmlkjihgf
 diff <(./llc.sh loop) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
 diff <(./target/debug/topple top/memory.top -j) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
 diff <(./llc.sh memory) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
+diff <(./target/debug/topple top/dbg.top -j) <(echo "( 10 20 30 1000 -- )"; echo "( 10 20 30 1000 10 -- )")
+diff <(./llc.sh dbg) <(echo "( 10 20 30 1000 -- )"; echo "( 10 20 30 1000 10 -- )")

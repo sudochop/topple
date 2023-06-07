@@ -12,7 +12,7 @@ use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
     types::BasicMetadataTypeEnum,
-    values::{BasicMetadataValueEnum, IntValue},
+    values::{BasicMetadataValueEnum, IntValue, PointerValue},
     AddressSpace, IntPredicate, OptimizationLevel,
 };
 
@@ -32,6 +32,7 @@ struct Compiler<'ctx> {
     module: Module<'ctx>,
     builder: Builder<'ctx>,
     execution_engine: ExecutionEngine<'ctx>,
+    putint_str_fmt: PointerValue<'ctx>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -89,12 +90,12 @@ impl<'ctx> Compiler<'ctx> {
             module.add_function("mem_ptr", fn_type, None)
         };
 
-        // extern mem_set
-        // let _mem_ptr_fn = {
-        //     let ret_type = context.i8_type().ptr_type(AddressSpace::default());
-        //     let fn_type = ret_type.fn_type(&[], false);
-        //     module.add_function("mem_ptr", fn_type, None)
-        // };
+        // extern dbg
+        let _dbg_fn = {
+            let ret_type = context.void_type();
+            let fn_type = ret_type.fn_type(&[], false);
+            module.add_function("dbg", fn_type, None)
+        };
 
         let main_ret_type = context.i64_type();
         let main_fn_type = main_ret_type.fn_type(&[], false);
@@ -102,11 +103,14 @@ impl<'ctx> Compiler<'ctx> {
         let main_entry = context.append_basic_block(main_fn_value, "entry");
         builder.position_at_end(main_entry);
 
+        let putint_str_fmt = builder.build_global_string_ptr("%d", "formatter").as_pointer_value();
+
         Compiler {
             context,
             module,
             builder,
             execution_engine,
+            putint_str_fmt,
         }
     }
 
@@ -152,19 +156,23 @@ impl<'ctx> Compiler<'ctx> {
             .build_ptr_to_int(mem_ptr, self.context.i64_type(), "mem_ptr_as_int")
     }
 
-    fn printint(&self, val: IntValue) {
+    fn putint(&self, val: IntValue) {
         let printf_fn = self.module.get_function("printf").unwrap();
-
-        let formatter = self.builder.build_global_string_ptr("%d\n", "formatter");
 
         self.builder.build_call(
             printf_fn,
             &[
-                formatter.as_pointer_value().into(),
+                self.putint_str_fmt.into(),
                 BasicMetadataValueEnum::IntValue(val),
             ],
-            "putchar",
+            "putint",
         );
+    }
+
+    fn dbg(&self) {
+        let dbg_fn = self.module.get_function("dbg").unwrap();
+
+        self.builder.build_call(dbg_fn, &[], "dbg");
     }
 
     fn compile_exprs(&self, exprs: &Vec<Expr>) {
@@ -177,44 +185,44 @@ impl<'ctx> Compiler<'ctx> {
                     self.push(val);
                 }
                 ExprKind::Add => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
-                    let result = self.builder.build_int_add(s1, s2, "add");
+                    let result = self.builder.build_int_add(top, mid, "add");
 
                     self.push(result);
                 }
                 ExprKind::Sub => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
-                    let result = self.builder.build_int_sub(s2, s1, "sub");
+                    let result = self.builder.build_int_sub(mid, top, "sub");
 
                     self.push(result);
                 }
                 ExprKind::Mul => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
-                    let result = self.builder.build_int_mul(s2, s1, "sub");
+                    let result = self.builder.build_int_mul(mid, top, "sub");
 
                     self.push(result);
                 }
                 ExprKind::Div => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
-                    let result = self.builder.build_int_unsigned_div(s2, s1, "sub");
+                    let result = self.builder.build_int_unsigned_div(mid, top, "sub");
 
                     self.push(result);
                 }
                 ExprKind::Eq => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
                     let bool = self
                         .builder
-                        .build_int_compare(IntPredicate::EQ, s2, s1, "ugt");
+                        .build_int_compare(IntPredicate::EQ, mid, top, "ugt");
                     let result = self.builder.build_int_cast_sign_flag(
                         bool,
                         self.context.i64_type(),
@@ -225,12 +233,12 @@ impl<'ctx> Compiler<'ctx> {
                     self.push(result);
                 }
                 ExprKind::Gt => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
                     let bool = self
                         .builder
-                        .build_int_compare(IntPredicate::UGT, s2, s1, "ugt");
+                        .build_int_compare(IntPredicate::UGT, mid, top, "ugt");
                     let result = self.builder.build_int_cast_sign_flag(
                         bool,
                         self.context.i64_type(),
@@ -241,12 +249,12 @@ impl<'ctx> Compiler<'ctx> {
                     self.push(result);
                 }
                 ExprKind::Gte => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
                     let bool = self
                         .builder
-                        .build_int_compare(IntPredicate::UGE, s2, s1, "ugt");
+                        .build_int_compare(IntPredicate::UGE, mid, top, "ugt");
                     let result = self.builder.build_int_cast_sign_flag(
                         bool,
                         self.context.i64_type(),
@@ -257,12 +265,12 @@ impl<'ctx> Compiler<'ctx> {
                     self.push(result);
                 }
                 ExprKind::Lt => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
                     let bool = self
                         .builder
-                        .build_int_compare(IntPredicate::ULT, s2, s1, "ult");
+                        .build_int_compare(IntPredicate::ULT, mid, top, "ult");
                     let result = self.builder.build_int_cast_sign_flag(
                         bool,
                         self.context.i64_type(),
@@ -273,12 +281,12 @@ impl<'ctx> Compiler<'ctx> {
                     self.push(result);
                 }
                 ExprKind::Lte => {
-                    let s1 = self.pop();
-                    let s2 = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
                     let bool = self
                         .builder
-                        .build_int_compare(IntPredicate::ULE, s2, s1, "ult");
+                        .build_int_compare(IntPredicate::ULE, mid, top, "ult");
                     let result = self.builder.build_int_cast_sign_flag(
                         bool,
                         self.context.i64_type(),
@@ -288,53 +296,72 @@ impl<'ctx> Compiler<'ctx> {
 
                     self.push(result);
                 }
-                ExprKind::Putchar => {
-                    let s1 = self.pop();
+                ExprKind::Or => {
+                    let top = self.pop();
+                    let mid = self.pop();
 
-                    self.putchar(s1);
+                    let bool = self.builder.build_or(mid, top, "or");
+
+                    self.push(bool)
+                }
+                ExprKind::Putchar => {
+                    let top = self.pop();
+
+                    self.putchar(top);
+                }
+                ExprKind::Putint => {
+                    let top = self.pop();
+
+                    self.putint(top);
+                }
+                ExprKind::Dbg => {
+                    self.dbg();
                 }
                 ExprKind::Dup => {
-                    let s1 = self.pop();
+                    let top = self.pop();
 
-                    self.push(s1);
-                    self.push(s1);
-                }
-                ExprKind::Dup2 => {
-                    let t = self.pop();
-                    let b = self.pop();
-
-                    self.push(b);
-                    self.push(t);
-                    self.push(b);
-                    self.push(t);
+                    self.push(top);
+                    self.push(top);
                 }
                 ExprKind::Swap => {
-                    let t = self.pop();
-                    let b = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
-                    self.push(t);
-                    self.push(b);
+                    self.push(top);
+                    self.push(mid);
                 }
                 ExprKind::Over => {
-                    let t = self.pop();
-                    let b = self.pop();
+                    let top = self.pop();
+                    let mid = self.pop();
 
-                    self.push(b);
-                    self.push(t);
-                    self.push(b);
+                    self.push(mid);
+                    self.push(top);
+                    self.push(mid);
+                }
+                ExprKind::Rot => {
+                    let top = self.pop();
+                    let mid = self.pop();
+                    let bot = self.pop();
+
+                    self.push(mid);
+                    self.push(top);
+                    self.push(bot);
+                }
+                ExprKind::Pop => {
+                    self.pop();
                 }
                 ExprKind::Conditional {
                     then_exprs,
                     maybe_else_exprs,
                 } => {
-                    let s1 = self.pop();
+                    let top = self.pop();
 
                     let then_block = self.context.append_basic_block(main_fn, "then_block");
                     let else_block = self.context.append_basic_block(main_fn, "else_block");
                     let cont_block = self.context.append_basic_block(main_fn, "cont_block");
 
                     let cond = self.builder.build_int_cast_sign_flag(
-                        s1,
+                        top,
                         self.context.bool_type(),
                         false,
                         "cast",
@@ -384,10 +411,10 @@ impl<'ctx> Compiler<'ctx> {
 
                     self.builder.position_at_end(check_block);
                     self.compile_exprs(while_exprs);
-                    let s1 = self.pop();
+                    let top = self.pop();
 
                     let cond = self.builder.build_int_cast_sign_flag(
-                        s1,
+                        top,
                         self.context.bool_type(),
                         false,
                         "cast",
@@ -400,12 +427,13 @@ impl<'ctx> Compiler<'ctx> {
                     self.builder.build_unconditional_branch(check_block);
 
                     self.builder.position_at_end(cont_block);
+                    self.pop();
                 }
                 ExprKind::Mem => {
                     let mem_as_int = self.mem();
                     self.push(mem_as_int);
                 }
-                ExprKind::Write => {
+                ExprKind::Store => {
                     let val = self.pop();
                     let addr = self.pop();
 
@@ -419,7 +447,7 @@ impl<'ctx> Compiler<'ctx> {
 
                     self.builder.build_store(ptr, cast);
                 }
-                ExprKind::Read => {
+                ExprKind::Load => {
                     let addr = self.pop();
 
                     let ptr = self.builder.build_int_to_ptr(
@@ -453,7 +481,11 @@ fn main() {
         .map_err(|e| match e {
             lalrpop_util::ParseError::InvalidToken { .. } => todo!(),
             lalrpop_util::ParseError::UnrecognizedEof { .. } => todo!(),
-            lalrpop_util::ParseError::UnrecognizedToken { .. } => todo!(),
+            lalrpop_util::ParseError::UnrecognizedToken { token, expected } => {
+                dbg!(token);
+                dbg!(expected);
+                unimplemented!("unrecognized token");
+            }
             lalrpop_util::ParseError::ExtraToken { .. } => todo!(),
             lalrpop_util::ParseError::User { error } => match error {
                 lexer::LexicalError::InvalidToken { span } => {

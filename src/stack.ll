@@ -2,6 +2,11 @@
 @stack = global [1000000 x i64] undef  ; 8MB
 @sp    = global i64 undef;
 
+@int_formatter = private unnamed_addr constant [3 x i8] c"%d\00", align 1
+
+declare i64 @putchar(i64)
+declare i8 @printf(i8*, ...)
+
 define void @push(i64 %val) {
     %sp   = load i64, i64* @sp
     %addr = getelementptr [1000000 x i64], [1000000 x i64]* @stack, i64 0, i64 %sp
@@ -38,10 +43,36 @@ define i8* @mem_ptr() {
     ret i8* %addr
 }
 
-;define void @mem_set(i64 %idx, i8 %val) {
-;    %addr = getelementptr [10000000 x i8], [10000000 x i8]* @mem, i8 0, i64 %idx
-;
-;    store i8 %val, i8* %addr
-;
-;    ret void
-;}
+define void @dbg() {
+    call i64 (i64) @putchar(i64 40) ; '('
+    call i64 (i64) @putchar(i64 32) ; ' '
+
+    %sp    = load i64, i64* @sp
+    %idxaddr = alloca i64
+    store i64 0, i64* %idxaddr
+    br label %check
+
+check:
+    %idx = load i64, i64* %idxaddr
+    %comp = icmp ult i64 %idx, %sp
+    br i1 %comp, label %body, label %cont
+
+body:
+    %addr  = getelementptr [1000000 x i64], [1000000 x i64]* @stack, i64 0, i64 %idx
+    %val   = load i64, i64* %addr
+
+    call i8 (i8*, ...) @printf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @int_formatter, i32 0, i32 0), i64 %val)
+    call i64 (i64) @putchar(i64 32) ; ' '
+
+    %newidx = add i64 %idx, 1
+    store i64 %newidx, i64* %idxaddr
+    br label %check
+
+cont:
+    call i64 (i64) @putchar(i64 45) ; '-'
+    call i64 (i64) @putchar(i64 45) ; '-'
+    call i64 (i64) @putchar(i64 32) ; ' '
+    call i64 (i64) @putchar(i64 41) ; ')'
+    call i64 (i64) @putchar(i64 10) ; '\n'
+    ret void
+}

@@ -1,5 +1,5 @@
 126
-while dup 31 > do {
+while dup 31 > {
     dup putchar
     0 if {
         100 putchar
