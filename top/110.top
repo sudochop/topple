@@ -1,6 +1,10 @@
 :main {
-    // init first row
+    :init_first_row
+    :write_next_row
+    :print_mem
+}
 
+:init_first_row {
     0 while dup 20 < {
         dup mem + 0 store
         1 +
@@ -8,9 +12,9 @@
 
     mem 20 + 1 store
     mem 21 + 0 store
+}
 
-    // write next row from last
-
+:write_next_row {
     0 while dup 20 < {
         1 while dup 20 < {
             over over over over
@@ -29,7 +33,7 @@
             4 * rot rot 2 * + +
 
             dup 0 == swap dup 4 == swap 7 == or or if {
-                pop
+                drop
             } else {
                 mem + 1 store
             }
@@ -39,9 +43,9 @@
         
         1 +
     }
+}
 
-    // print out memory
-
+:print_mem {
     0 while dup 20 < {
         0 while dup 21 < {
             over over

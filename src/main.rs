@@ -149,8 +149,6 @@ impl<'ctx> Compiler<'ctx> {
     fn putint(&self, val: IntValue) {
         let printf_fn = self.module.get_function("printf").unwrap();
 
-        // TODO: This creates a lot of globals when we only need one.
-        // Can we declare this as a global at the module level?
         let putint_str_fmt = self.builder.build_global_string_ptr("%d", "formatter").as_pointer_value();
 
         self.builder.build_call(
@@ -172,10 +170,17 @@ impl<'ctx> Compiler<'ctx> {
     fn compile(&self, ast: &SourceUnit) {
         for located in &ast.declarations {
             match &located.node {
-                DeclarationKind::Function { name, exprs } => {
+                DeclarationKind::Function { name, .. } => {
                     let ret_type = self.context.void_type();
                     let fn_type = ret_type.fn_type(&[], false);
-                    let fn_value = self.module.add_function(name, fn_type, None);
+                    self.module.add_function(name, fn_type, None);
+                }
+            }
+        }
+        for located in &ast.declarations {
+            match &located.node {
+                DeclarationKind::Function { name, exprs } => {
+                    let fn_value = self.module.get_function(name).unwrap();
                     let entry = self.context.append_basic_block(fn_value, "entry");
                     self.builder.position_at_end(entry); 
 
@@ -505,7 +510,8 @@ fn main() {
             lalrpop_util::ParseError::ExtraToken { .. } => todo!(),
             lalrpop_util::ParseError::User { error } => match error {
                 lexer::LexicalError::InvalidToken { span } => {
-                    dbg!(span);
+                    dbg!(&input[span.start-10..span.end+10]);
+                    dbg!(&input[span.start..span.end]);
                     todo!()
                 }
             },
