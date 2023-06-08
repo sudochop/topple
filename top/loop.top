@@ -1,12 +1,14 @@
-126
-while dup 31 > {
-    dup putchar
-    0 if {
-        100 putchar
-    } else {
-        
+:main {
+    126
+    while dup 31 > {
+        dup putchar
+        0 if {
+            100 putchar
+        } else {
+            
+        }
+        1 -
+        0 if {} else {}
     }
-    1 -
-    0 if {} else {}
+    10  putchar // '\n'
 }
-10  putchar // '\n'

@@ -4,7 +4,7 @@ mod tokens;
 
 use std::path::Path;
 
-use ast::Expr;
+use ast::{Expr, SourceUnit, DeclarationKind};
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -12,7 +12,7 @@ use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
     types::BasicMetadataTypeEnum,
-    values::{BasicMetadataValueEnum, IntValue, PointerValue},
+    values::{BasicMetadataValueEnum, IntValue},
     AddressSpace, IntPredicate, OptimizationLevel,
 };
 
@@ -32,7 +32,6 @@ struct Compiler<'ctx> {
     module: Module<'ctx>,
     builder: Builder<'ctx>,
     execution_engine: ExecutionEngine<'ctx>,
-    putint_str_fmt: PointerValue<'ctx>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -97,20 +96,11 @@ impl<'ctx> Compiler<'ctx> {
             module.add_function("dbg", fn_type, None)
         };
 
-        let main_ret_type = context.i64_type();
-        let main_fn_type = main_ret_type.fn_type(&[], false);
-        let main_fn_value = module.add_function("main", main_fn_type, None);
-        let main_entry = context.append_basic_block(main_fn_value, "entry");
-        builder.position_at_end(main_entry);
-
-        let putint_str_fmt = builder.build_global_string_ptr("%d", "formatter").as_pointer_value();
-
         Compiler {
             context,
             module,
             builder,
             execution_engine,
-            putint_str_fmt,
         }
     }
 
@@ -159,10 +149,14 @@ impl<'ctx> Compiler<'ctx> {
     fn putint(&self, val: IntValue) {
         let printf_fn = self.module.get_function("printf").unwrap();
 
+        // TODO: This creates a lot of globals when we only need one.
+        // Can we declare this as a global at the module level?
+        let putint_str_fmt = self.builder.build_global_string_ptr("%d", "formatter").as_pointer_value();
+
         self.builder.build_call(
             printf_fn,
             &[
-                self.putint_str_fmt.into(),
+                putint_str_fmt.into(),
                 BasicMetadataValueEnum::IntValue(val),
             ],
             "putint",
@@ -175,11 +169,33 @@ impl<'ctx> Compiler<'ctx> {
         self.builder.build_call(dbg_fn, &[], "dbg");
     }
 
+    fn compile(&self, ast: &SourceUnit) {
+        for located in &ast.declarations {
+            match &located.node {
+                DeclarationKind::Function { name, exprs } => {
+                    let ret_type = self.context.void_type();
+                    let fn_type = ret_type.fn_type(&[], false);
+                    let fn_value = self.module.add_function(name, fn_type, None);
+                    let entry = self.context.append_basic_block(fn_value, "entry");
+                    self.builder.position_at_end(entry); 
+
+                    self.compile_exprs(exprs);
+
+                    self.builder.build_return(None);
+                }
+            }
+        }
+    }
+
     fn compile_exprs(&self, exprs: &Vec<Expr>) {
-        let main_fn = self.module.get_function("main").unwrap();
+        let curr_fn = self.builder.get_insert_block().unwrap().get_parent().unwrap();
 
         for located in exprs {
             match &located.node {
+                ExprKind::FnCall(name) => {
+                    let func = self.module.get_function(name).unwrap();
+                    self.builder.build_call(func, &[], name);
+                }
                 ExprKind::Integer(i) => {
                     let val = self.context.i64_type().const_int(*i, false);
                     self.push(val);
@@ -347,7 +363,7 @@ impl<'ctx> Compiler<'ctx> {
                     self.push(top);
                     self.push(bot);
                 }
-                ExprKind::Pop => {
+                ExprKind::Drop => {
                     self.pop();
                 }
                 ExprKind::Conditional {
@@ -356,9 +372,9 @@ impl<'ctx> Compiler<'ctx> {
                 } => {
                     let top = self.pop();
 
-                    let then_block = self.context.append_basic_block(main_fn, "then_block");
-                    let else_block = self.context.append_basic_block(main_fn, "else_block");
-                    let cont_block = self.context.append_basic_block(main_fn, "cont_block");
+                    let then_block = self.context.append_basic_block(curr_fn, "then_block");
+                    let else_block = self.context.append_basic_block(curr_fn, "else_block");
+                    let cont_block = self.context.append_basic_block(curr_fn, "cont_block");
 
                     let cond = self.builder.build_int_cast_sign_flag(
                         top,
@@ -403,9 +419,9 @@ impl<'ctx> Compiler<'ctx> {
                     while_exprs,
                     do_exprs,
                 } => {
-                    let check_block = self.context.append_basic_block(main_fn, "check_block");
-                    let body_block = self.context.append_basic_block(main_fn, "body_block");
-                    let cont_block = self.context.append_basic_block(main_fn, "cont_block");
+                    let check_block = self.context.append_basic_block(curr_fn, "check_block");
+                    let body_block = self.context.append_basic_block(curr_fn, "body_block");
+                    let cont_block = self.context.append_basic_block(curr_fn, "cont_block");
 
                     self.builder.build_unconditional_branch(check_block);
 
@@ -499,12 +515,12 @@ fn main() {
     let context = Context::create();
     let tc = Compiler::new(&context, "main");
 
-    tc.compile_exprs(&ast.exprs);
+    tc.compile(&ast);
 
     // TODO: return final pop of stack.
-    let ret_ty = tc.context.i64_type();
-    let ret_val = ret_ty.const_int(0, false);
-    tc.builder.build_return(Some(&ret_val));
+    // let ret_ty = tc.context.i64_type();
+    // let ret_val = ret_ty.const_int(0, false);
+    // tc.builder.build_return(Some(&ret_val));
 
     let source_file_name = Path::file_stem(Path::new(source_file_path)).unwrap();
     let mut out_path = Path::new("out").join(source_file_name);
@@ -524,3 +540,4 @@ fn main() {
         };
     }
 }
+

@@ -6,8 +6,18 @@ pub struct Located<T> {
 
 #[derive(Debug, PartialEq)]
 pub struct SourceUnit {
-    pub exprs: Vec<Expr>
+    pub declarations: Vec<Declaration>,
 }
+
+#[derive(Debug, PartialEq)]
+pub enum DeclarationKind {
+    Function {
+        name: String,
+        exprs: Vec<Expr>,
+    }
+}
+
+pub type Declaration = Located<DeclarationKind>;
 
 #[derive(Debug, PartialEq)]
 pub enum ExprKind {
@@ -35,7 +45,7 @@ pub enum ExprKind {
     Over,
     Rot,
 
-    Pop,
+    Drop,
 
     Mem,
     Store,
@@ -50,6 +60,8 @@ pub enum ExprKind {
         while_exprs: Vec<Expr>,
         do_exprs: Vec<Expr>,
     },
+
+    FnCall(String),
 }
 
 pub type Expr = Located<ExprKind>;

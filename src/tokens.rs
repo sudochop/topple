@@ -48,9 +48,9 @@ pub enum Token {
     Div,
 
     #[token("putchar")]
-    Putchar,
+    PutChar,
     #[token("putint")]
-    Putint,
+    PutInt,
     #[token("dbg")]
     Dbg,
 
@@ -63,9 +63,8 @@ pub enum Token {
     #[token("rot")]
     Rot,
 
-    #[token("pop")]
-    Pop,
-
+    #[token("drop")]
+    Drop,
 
     #[token("mem")]
     Mem,
@@ -73,4 +72,7 @@ pub enum Token {
     Store,
     #[token("load")]
     Load,
+
+    #[regex(r":\w+", |lex| lex.slice()[1..].to_string())]
+    FnName(String),
 }

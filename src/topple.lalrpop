@@ -9,7 +9,17 @@ use lalrpop_util::ErrorRecovery;
 grammar<'input, 'err>(input: &'input str, errors: &'err mut Vec<ErrorRecovery<usize, Token, LexicalError>>);
 
 pub SourceUnit: SourceUnit = {
-    Expr* => SourceUnit { exprs: <> }
+    Declaration* => SourceUnit { declarations: <> }
+}
+
+Declaration: Declaration = {
+    <l:@L> <name:"funcname"> "{" <exprs:Expr*> "}" <r:@R> => Declaration {
+        location: (l, r),
+        node: DeclarationKind::Function {
+            name,
+            exprs,
+        }
+    }
 }
 
 Expr: Expr = {
@@ -60,11 +70,13 @@ Expr3: ExprKind = {
     "over" => ExprKind::Over,
     "rot" => ExprKind::Rot,
 
-    "pop" => ExprKind::Pop,
+    "drop" => ExprKind::Drop,
 
     "mem" => ExprKind::Mem,
     "store" => ExprKind::Store,
     "load" => ExprKind::Load,
+
+    "funcname" => ExprKind::FnCall(<>),
 }
 
 extern {
@@ -94,8 +106,8 @@ extern {
         "*" => Token::Mul,
         "/" => Token::Div,
 
-        "putchar" => Token::Putchar,
-        "putint" => Token::Putint,
+        "putchar" => Token::PutChar,
+        "putint" => Token::PutInt,
         "dbg" => Token::Dbg,
 
         "dup" => Token::Dup,
@@ -103,10 +115,12 @@ extern {
         "over" => Token::Over,
         "rot" => Token::Rot,
 
-        "pop" => Token::Pop,
+        "drop" => Token::Drop,
 
         "mem" => Token::Mem,
         "store" => Token::Store,
         "load" => Token::Load,
+
+        "funcname" => Token::FnName(<String>),
     }
 }

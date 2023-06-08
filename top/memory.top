@@ -1,19 +1,21 @@
-126
-while dup 31 > {
-    dup       // n n
-    mem +     // n <addr>
-    over      // n <addr> n
-    store     // n
-    1 -
-}
+:main {
+    126
+    while dup 31 > {
+        dup       // n n
+        mem +     // n <addr>
+        over      // n <addr> n
+        store     // n
+        1 -
+    }
 
-126
-while dup 31 > {
-    dup       // n n
-    mem +     // n <addr>
-    load      // n <val>
-    putchar   // n
-    1 -
-}
+    126
+    while dup 31 > {
+        dup       // n n
+        mem +     // n <addr>
+        load      // n <val>
+        putchar   // n
+        1 -
+    }
 
-10  putchar // '\n'
+    10  putchar // '\n'
+}
