@@ -2,9 +2,9 @@ mod ast;
 mod lexer;
 mod tokens;
 
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
-use ast::{Expr, SourceUnit, DeclarationKind};
+use ast::{Block, BlockKind, Declaration, DeclarationKind, Expr, Macro};
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -32,6 +32,7 @@ struct Compiler<'ctx> {
     module: Module<'ctx>,
     builder: Builder<'ctx>,
     execution_engine: ExecutionEngine<'ctx>,
+    macros: HashMap<String, Macro>,
 }
 
 impl<'ctx> Compiler<'ctx> {
@@ -101,6 +102,7 @@ impl<'ctx> Compiler<'ctx> {
             module,
             builder,
             execution_engine,
+            macros: HashMap::new(),
         }
     }
 
@@ -149,14 +151,14 @@ impl<'ctx> Compiler<'ctx> {
     fn putint(&self, val: IntValue) {
         let printf_fn = self.module.get_function("printf").unwrap();
 
-        let putint_str_fmt = self.builder.build_global_string_ptr("%d", "formatter").as_pointer_value();
+        let putint_str_fmt = self
+            .builder
+            .build_global_string_ptr("%d", "formatter")
+            .as_pointer_value();
 
         self.builder.build_call(
             printf_fn,
-            &[
-                putint_str_fmt.into(),
-                BasicMetadataValueEnum::IntValue(val),
-            ],
+            &[putint_str_fmt.into(), BasicMetadataValueEnum::IntValue(val)],
             "putint",
         );
     }
@@ -167,39 +169,295 @@ impl<'ctx> Compiler<'ctx> {
         self.builder.build_call(dbg_fn, &[], "dbg");
     }
 
-    fn compile(&self, ast: &SourceUnit) {
-        for located in &ast.declarations {
+    fn gather_macros(&mut self, ast: Vec<Declaration>) -> Vec<Declaration> {
+        ast.iter()
+            .filter_map(|located| match &located.node {
+                DeclarationKind::Macro(mac) => {
+                    self.macros.insert(mac.name.clone(), mac.to_owned());
+                    None
+                }
+                _ => Some(located.to_owned()),
+            })
+            .collect()
+    }
+
+    fn expand_macros(&self, ast: Vec<Declaration>) -> (Vec<Declaration>, bool) {
+        let mut expanded = false;
+
+        let decls = ast
+            .iter()
+            .map(|decl| match &decl.node {
+                DeclarationKind::Macro(Macro { name, .. }) => {
+                    assert!(false, "macro `{name}` not removed from ast");
+                    decl.to_owned()
+                }
+                DeclarationKind::Function { name, body } => Declaration {
+                    location: decl.location,
+                    node: DeclarationKind::Function {
+                        name: name.to_string(),
+                        body: Block {
+                            location: body.location,
+                            node: BlockKind {
+                                exprs: body
+                                    .node
+                                    .exprs
+                                    .iter()
+                                    .map(|expr| {
+                                        let (expr, was_expanded) =
+                                            self.expand_macro(expr.to_owned());
+                                        expanded = was_expanded;
+                                        expr
+                                    })
+                                    .collect(),
+                            },
+                        },
+                    },
+                },
+            })
+            .collect::<Vec<Declaration>>();
+
+        (decls, expanded)
+    }
+
+    fn expand_macro(&self, expr: Expr) -> (Expr, bool) {
+        let mut expanded = false;
+
+        let expr = match expr.node {
+            ExprKind::MacroCall { name, args } => {
+                let mac = self.macros.get(&name).unwrap();
+                let mut bindings: HashMap<String, Expr> = HashMap::new();
+
+                mac.args.iter().zip(args.iter()).for_each(|(n, e)| {
+                    bindings.insert(n.to_string(), e.to_owned());
+                });
+
+                let ast: Vec<Expr> = mac
+                    .body
+                    .node
+                    .exprs
+                    .iter()
+                    .map(|expr| self.expand_bindings(expr.to_owned(), &bindings))
+                    .collect();
+
+                expanded = true;
+
+                Expr {
+                    location: expr.location,
+                    node: ExprKind::Block(BlockKind { exprs: ast }),
+                }
+            }
+            ExprKind::Conditional {
+                then_block,
+                maybe_else_block,
+            } => Expr {
+                location: expr.location,
+                node: ExprKind::Conditional {
+                    then_block: Block {
+                        location: then_block.location,
+                        node: BlockKind {
+                            exprs: then_block
+                                .node
+                                .exprs
+                                .iter()
+                                .map(|expr| {
+                                    let (expr, was_expanded) = self.expand_macro(expr.to_owned());
+                                    expanded = was_expanded;
+                                    expr
+                                })
+                                .collect(),
+                        },
+                    },
+                    maybe_else_block: maybe_else_block.map(|else_block| Block {
+                        location: else_block.location,
+                        node: BlockKind {
+                            exprs: else_block
+                                .node
+                                .exprs
+                                .iter()
+                                .map(|expr| {
+                                    let (expr, was_expanded) = self.expand_macro(expr.to_owned());
+                                    expanded = was_expanded;
+                                    expr
+                                })
+                                .collect(),
+                        },
+                    }),
+                },
+            },
+            ExprKind::While {
+                while_exprs,
+                do_block,
+            } => Expr {
+                location: expr.location,
+                node: ExprKind::While {
+                    while_exprs: while_exprs
+                        .iter()
+                        .map(|expr| {
+                            let (expr, was_expanded) = self.expand_macro(expr.to_owned());
+                            expanded = was_expanded;
+                            expr
+                        })
+                        .collect(),
+                    do_block: Block {
+                        location: do_block.location,
+                        node: BlockKind {
+                            exprs: do_block
+                                .node
+                                .exprs
+                                .iter()
+                                .map(|expr| {
+                                    let (expr, was_expanded) = self.expand_macro(expr.to_owned());
+                                    expanded = was_expanded;
+                                    expr
+                                })
+                                .collect(),
+                        },
+                    },
+                },
+            },
+            ExprKind::Block(block) => Expr {
+                location: expr.location,
+                node: ExprKind::Block(BlockKind {
+                    exprs: block
+                        .exprs
+                        .iter()
+                        .map(|expr| {
+                            let (expr, was_expanded) = self.expand_macro(expr.to_owned());
+                            expanded = was_expanded;
+                            expr
+                        })
+                        .collect(),
+                }),
+            },
+            _ => expr,
+        };
+
+        (expr, expanded)
+    }
+
+    fn expand_bindings(&self, expr: Expr, bindings: &HashMap<String, Expr>) -> Expr {
+        match expr.node {
+            ExprKind::Binding(name) => bindings.get(&name).unwrap().to_owned(),
+            ExprKind::While {
+                while_exprs,
+                do_block,
+            } => Expr {
+                location: expr.location,
+                node: ExprKind::While {
+                    while_exprs: while_exprs
+                        .iter()
+                        .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
+                        .collect(),
+                    do_block: Block {
+                        location: do_block.location,
+                        node: BlockKind {
+                            exprs: do_block
+                                .node
+                                .exprs
+                                .iter()
+                                .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
+                                .collect(),
+                        },
+                    },
+                },
+            },
+            ExprKind::Conditional {
+                then_block,
+                maybe_else_block,
+            } => Expr {
+                location: expr.location,
+                node: ExprKind::Conditional {
+                    then_block: Block {
+                        location: then_block.location,
+                        node: BlockKind {
+                            exprs: then_block
+                                .node
+                                .exprs
+                                .iter()
+                                .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
+                                .collect(),
+                        },
+                    },
+                    maybe_else_block: maybe_else_block.map(|else_block| Block {
+                        location: else_block.location,
+                        node: BlockKind {
+                            exprs: else_block
+                                .node
+                                .exprs
+                                .iter()
+                                .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
+                                .collect(),
+                        },
+                    }),
+                },
+            },
+            ExprKind::Block(block) => Expr {
+                location: expr.location,
+                node: ExprKind::Block(BlockKind {
+                    exprs: block
+                        .exprs
+                        .iter()
+                        .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
+                        .collect(),
+                }),
+            },
+            _ => expr,
+        }
+    }
+
+    fn compile(&self, ast: Vec<Declaration>) {
+        for located in ast.iter() {
             match &located.node {
                 DeclarationKind::Function { name, .. } => {
                     let ret_type = self.context.void_type();
                     let fn_type = ret_type.fn_type(&[], false);
                     self.module.add_function(name, fn_type, None);
                 }
+                DeclarationKind::Macro(Macro { name, .. }) => {
+                    assert!(false, "macro `{name}` not removed from ast");
+                }
             }
         }
-        for located in &ast.declarations {
+        for located in ast.iter() {
             match &located.node {
-                DeclarationKind::Function { name, exprs } => {
+                DeclarationKind::Function { name, body } => {
                     let fn_value = self.module.get_function(name).unwrap();
                     let entry = self.context.append_basic_block(fn_value, "entry");
-                    self.builder.position_at_end(entry); 
+                    self.builder.position_at_end(entry);
 
-                    self.compile_exprs(exprs);
+                    self.compile_exprs(&body.node.exprs);
 
                     self.builder.build_return(None);
+                }
+                DeclarationKind::Macro(Macro { name, .. }) => {
+                    assert!(false, "macro `{name}` not removed from ast");
                 }
             }
         }
     }
 
     fn compile_exprs(&self, exprs: &Vec<Expr>) {
-        let curr_fn = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let curr_fn = self
+            .builder
+            .get_insert_block()
+            .unwrap()
+            .get_parent()
+            .unwrap();
 
         for located in exprs {
             match &located.node {
                 ExprKind::FnCall(name) => {
                     let func = self.module.get_function(name).unwrap();
                     self.builder.build_call(func, &[], name);
+                }
+                ExprKind::MacroCall { name, .. } => {
+                    assert!(false, "macro `{name}` not expanded");
+                }
+                ExprKind::Block(block) => {
+                    self.compile_exprs(&block.exprs);
+                }
+                ExprKind::Binding(name) => {
+                    unimplemented!("binding: `{name}`");
                 }
                 ExprKind::Integer(i) => {
                     let val = self.context.i64_type().const_int(*i, false);
@@ -372,14 +630,17 @@ impl<'ctx> Compiler<'ctx> {
                     self.pop();
                 }
                 ExprKind::Conditional {
-                    then_exprs,
-                    maybe_else_exprs,
+                    then_block,
+                    maybe_else_block,
                 } => {
                     let top = self.pop();
 
-                    let then_block = self.context.append_basic_block(curr_fn, "then_block");
-                    let else_block = self.context.append_basic_block(curr_fn, "else_block");
-                    let cont_block = self.context.append_basic_block(curr_fn, "cont_block");
+                    let then_basic_block =
+                        self.context.append_basic_block(curr_fn, "then_basic_block");
+                    let else_basic_block =
+                        self.context.append_basic_block(curr_fn, "else_basic_block");
+                    let cont_basic_block =
+                        self.context.append_basic_block(curr_fn, "cont_basic_block");
 
                     let cond = self.builder.build_int_cast_sign_flag(
                         top,
@@ -388,10 +649,10 @@ impl<'ctx> Compiler<'ctx> {
                         "cast",
                     );
                     self.builder
-                        .build_conditional_branch(cond, then_block, else_block);
+                        .build_conditional_branch(cond, then_basic_block, else_basic_block);
 
-                    self.builder.position_at_end(then_block);
-                    self.compile_exprs(then_exprs);
+                    self.builder.position_at_end(then_basic_block);
+                    self.compile_exprs(&then_block.node.exprs);
                     if self
                         .builder
                         .get_insert_block()
@@ -399,12 +660,12 @@ impl<'ctx> Compiler<'ctx> {
                         .get_terminator()
                         .is_none()
                     {
-                        self.builder.build_unconditional_branch(cont_block);
+                        self.builder.build_unconditional_branch(cont_basic_block);
                     }
 
-                    self.builder.position_at_end(else_block);
-                    if let Some(else_exprs) = maybe_else_exprs {
-                        self.compile_exprs(else_exprs);
+                    self.builder.position_at_end(else_basic_block);
+                    if let Some(else_exprs) = maybe_else_block {
+                        self.compile_exprs(&else_exprs.node.exprs);
                         if self
                             .builder
                             .get_insert_block()
@@ -412,25 +673,29 @@ impl<'ctx> Compiler<'ctx> {
                             .get_terminator()
                             .is_none()
                         {
-                            self.builder.build_unconditional_branch(cont_block);
+                            self.builder.build_unconditional_branch(cont_basic_block);
                         }
                     } else {
-                        self.builder.build_unconditional_branch(cont_block);
+                        self.builder.build_unconditional_branch(cont_basic_block);
                     }
 
-                    self.builder.position_at_end(cont_block);
+                    self.builder.position_at_end(cont_basic_block);
                 }
                 ExprKind::While {
                     while_exprs,
-                    do_exprs,
+                    do_block,
                 } => {
-                    let check_block = self.context.append_basic_block(curr_fn, "check_block");
-                    let body_block = self.context.append_basic_block(curr_fn, "body_block");
-                    let cont_block = self.context.append_basic_block(curr_fn, "cont_block");
+                    let check_basic_block = self
+                        .context
+                        .append_basic_block(curr_fn, "check_basic_block");
+                    let body_basic_block =
+                        self.context.append_basic_block(curr_fn, "body_basic_block");
+                    let cont_basic_block =
+                        self.context.append_basic_block(curr_fn, "cont_basic_block");
 
-                    self.builder.build_unconditional_branch(check_block);
+                    self.builder.build_unconditional_branch(check_basic_block);
 
-                    self.builder.position_at_end(check_block);
+                    self.builder.position_at_end(check_basic_block);
                     self.compile_exprs(while_exprs);
                     let top = self.pop();
 
@@ -441,13 +706,13 @@ impl<'ctx> Compiler<'ctx> {
                         "cast",
                     );
                     self.builder
-                        .build_conditional_branch(cond, body_block, cont_block);
+                        .build_conditional_branch(cond, body_basic_block, cont_basic_block);
 
-                    self.builder.position_at_end(body_block);
-                    self.compile_exprs(do_exprs);
-                    self.builder.build_unconditional_branch(check_block);
+                    self.builder.position_at_end(body_basic_block);
+                    self.compile_exprs(&do_block.node.exprs);
+                    self.builder.build_unconditional_branch(check_basic_block);
 
-                    self.builder.position_at_end(cont_block);
+                    self.builder.position_at_end(cont_basic_block);
                     self.pop();
                 }
                 ExprKind::Mem => {
@@ -464,7 +729,12 @@ impl<'ctx> Compiler<'ctx> {
                         "int_to_ptr",
                     );
 
-                    let cast = self.builder.build_int_cast_sign_flag(val, self.context.i8_type(), false, "cast");
+                    let cast = self.builder.build_int_cast_sign_flag(
+                        val,
+                        self.context.i8_type(),
+                        false,
+                        "cast",
+                    );
 
                     self.builder.build_store(ptr, cast);
                 }
@@ -478,7 +748,12 @@ impl<'ctx> Compiler<'ctx> {
                     );
 
                     let val = self.builder.build_load(ptr, "read_mem").into_int_value();
-                    let cast = self.builder.build_int_cast_sign_flag(val, self.context.i64_type(), false, "cast");
+                    let cast = self.builder.build_int_cast_sign_flag(
+                        val,
+                        self.context.i64_type(),
+                        false,
+                        "cast",
+                    );
 
                     self.push(cast);
                 }
@@ -510,7 +785,7 @@ fn main() {
             lalrpop_util::ParseError::ExtraToken { .. } => todo!(),
             lalrpop_util::ParseError::User { error } => match error {
                 lexer::LexicalError::InvalidToken { span } => {
-                    dbg!(&input[span.start-10..span.end+10]);
+                    dbg!(&input[span.start - 10..span.end + 10]);
                     dbg!(&input[span.start..span.end]);
                     todo!()
                 }
@@ -519,9 +794,22 @@ fn main() {
         .unwrap();
 
     let context = Context::create();
-    let tc = Compiler::new(&context, "main");
+    let mut tc = Compiler::new(&context, "main");
 
-    tc.compile(&ast);
+    let ast = tc.gather_macros(ast.declarations);
+
+    let mut expanded = true;
+    let mut expanded_ast = ast.to_owned();
+
+    while expanded {
+        let (ast, was_expanded) = tc.expand_macros(expanded_ast);
+        expanded_ast = ast;
+        expanded = was_expanded;
+    }
+
+    // dbg!(&expanded_ast);
+
+    tc.compile(expanded_ast);
 
     // TODO: return final pop of stack.
     // let ret_ty = tc.context.i64_type();
@@ -546,4 +834,3 @@ fn main() {
         };
     }
 }
-

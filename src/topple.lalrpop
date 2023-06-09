@@ -12,37 +12,64 @@ pub SourceUnit: SourceUnit = {
     Declaration* => SourceUnit { declarations: <> }
 }
 
-Declaration: Declaration = {
-    <l:@L> <name:"funcname"> "{" <exprs:Expr*> "}" <r:@R> => Declaration {
+Block: Block = {
+    <l:@L> "{" <exprs:Expr*> "}" <r:@R> => Block {
         location: (l, r),
-        node: DeclarationKind::Function {
-            name,
+        node: BlockKind {
             exprs,
         }
     }
 }
 
-Expr: Expr = {
-    <l:@L> "if" "{" <then_exprs:Expr*> "}" <maybe_else_exprs:Else?> <r:@R> => Expr {
+Declaration: Declaration = {
+    <l:@L> <name:"funcname"> <body:Block> <r:@R> => Declaration {
         location: (l, r),
-        node: ExprKind::Conditional { then_exprs, maybe_else_exprs }
+        node: DeclarationKind::Function {
+            name,
+            body,
+        }
     },
-    <l:@L> "while" <while_exprs:Expr2*> "{" <do_exprs:Expr*> "}" <r:@R> => Expr {
+    <l:@L> <name:"macroname"> "[" <args:Binding*> "]" <body:Block> <r:@R> => Declaration {
         location: (l, r),
-        node: ExprKind::While { while_exprs, do_exprs }
+        node: DeclarationKind::Macro(Macro {
+            name,
+            args,
+            body,
+        })
+    },
+}
+
+Binding: String = {
+    "binding" => <>
+}
+
+Expr: Expr = {
+    <l:@L> "if" <then_block:Block> <maybe_else_block:Else?> <r:@R> => Expr {
+        location: (l, r),
+        node: ExprKind::Conditional { then_block, maybe_else_block }
+    },
+    <l:@L> "while" <while_exprs:Expr2*> <do_block:Block> <r:@R> => Expr {
+        location: (l, r),
+        node: ExprKind::While { while_exprs, do_block }
+    },
+    <l:@L> "{" <exprs:Expr2*> "}" <r:@R> => Expr {
+        location: (l, r),
+        node: ExprKind::Block(BlockKind {
+            exprs,
+        }),
     },
     <Expr2> => <>,
 }
 
-Else: Vec<Expr> = {
-   <l:@L> "else" "{" <ops:Expr*> "}" <r:@R> => ops, 
+Else: Block = {
+   <l:@L> "else" <block:Block> <r:@R> => block, 
 }
 
 Expr2: Expr = {
     <l:@L> <expr:Expr3> <r:@R> => Expr {
         location: (l, r),
         node: expr,
-    }
+    },
 }
 
 Expr3: ExprKind = {
@@ -77,6 +104,13 @@ Expr3: ExprKind = {
     "load" => ExprKind::Load,
 
     "funcname" => ExprKind::FnCall(<>),
+
+    <name:"macroname"> "[" <args:Expr*> "]" => ExprKind::MacroCall {
+        name,
+        args,
+    },
+
+    "binding" => ExprKind::Binding(<>),
 }
 
 extern {
@@ -90,6 +124,8 @@ extern {
 
         "{" => Token::LCurlyBracket,
         "}" => Token::RCurlyBracket,
+        "[" => Token::LBracket,
+        "]" => Token::RBracket,
         
         "integer" => Token::Integer(<u64>),
 
@@ -122,5 +158,8 @@ extern {
         "load" => Token::Load,
 
         "funcname" => Token::FnName(<String>),
+        "macroname" => Token::MacroName(<String>),
+
+        "binding" => Token::Binding(<String>),
     }
 }

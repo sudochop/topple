@@ -1,25 +1,40 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Located<T> {
     pub location: (usize, usize),
     pub node: T,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SourceUnit {
     pub declarations: Vec<Declaration>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
+pub struct BlockKind {
+    pub exprs: Vec<Expr>,
+}
+
+pub type Block = Located<BlockKind>;
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Macro {
+    pub name: String,
+    pub args: Vec<String>,
+    pub body: Block,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum DeclarationKind {
     Function {
         name: String,
-        exprs: Vec<Expr>,
-    }
+        body: Block,
+    },
+    Macro(Macro),
 }
 
 pub type Declaration = Located<DeclarationKind>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
     Integer(u64),
 
@@ -52,16 +67,25 @@ pub enum ExprKind {
     Load,
 
     Conditional {
-        then_exprs: Vec<Expr>,
-        maybe_else_exprs: Option<Vec<Expr>>,
+        then_block: Block,
+        maybe_else_block: Option<Block>,
     },
 
     While {
         while_exprs: Vec<Expr>,
-        do_exprs: Vec<Expr>,
+        do_block: Block,
     },
 
     FnCall(String),
+
+    MacroCall {
+        name: String,
+        args: Vec<Expr>,
+    },
+
+    Block(BlockKind),
+
+    Binding(String),
 }
 
 pub type Expr = Located<ExprKind>;

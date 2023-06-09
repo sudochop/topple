@@ -1,35 +1,32 @@
-// !apply2 $block { // (m t -- mf tf)
-//     $block swap $block swap
-// }
-// 
-// !apply3 $block { // (b m t -- bf mf tf)
-//     $block cycle $block swap $block swap
-// }
-// 
-// !for $n $e $block {
-//     $n while dup $e < {
-//         $block
-//         1 +
-//     }
-// }
+!apply2[$block] { // (m t -- mf tf)
+    $block swap $block swap
+}
 
-// :main {
-//     3 4   !apply2 { 2 * } // (   6 8 -- )
-//     1 2 3 !apply3 { 1 + } // ( 2 3 4 -- )
-// 
-//     0
-// }
+!apply3[$block] { // (b m t -- bf mf tf)
+    $block rot $block rot $block rot
+}
 
-// one we have types this can mean something that we actually typecheck
-// :main ( -- int ) {
+!for[$n $e $block] {
+    $n while dup $e < {
+        $block
+        1 2 !apply2[{ 1 + }] dbg
+        drop drop
+        1 +
+    }
+}
+
+:main {
+    !for[0 5 { 
+        1 2 3 !apply3[{ 1 + }] dbg
+        drop drop drop
+    }]
+}
+
+
+// when we have types this can mean something that we actually typecheck
+// :main ( -- i64 ) {
 //     0
 // }
 
 // let ( $a $b $c -- )
 
-:debug { dbg }
-
-:main {
-    1 2 :debug drop drop
-    0
-}

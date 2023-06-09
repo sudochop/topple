@@ -23,6 +23,10 @@ pub enum Token {
     LCurlyBracket,
     #[token("}")]
     RCurlyBracket,
+    #[token("[")]
+    LBracket,
+    #[token("]")]
+    RBracket,
 
     #[token("==")]
     Eq,
@@ -75,4 +79,10 @@ pub enum Token {
 
     #[regex(r":\w+", |lex| lex.slice()[1..].to_string())]
     FnName(String),
+
+    #[regex(r"!\w+", |lex| lex.slice()[1..].to_string())]
+    MacroName(String),
+
+    #[regex(r"\$\w+", |lex| lex.slice()[1..].to_string())]
+    Binding(String),
 }
