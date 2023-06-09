@@ -25,6 +25,7 @@ pub struct Macro {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum DeclarationKind {
+    Include(String),
     Function {
         name: String,
         body: Block,

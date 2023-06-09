@@ -169,6 +169,19 @@ impl<'ctx> Compiler<'ctx> {
         self.builder.build_call(dbg_fn, &[], "dbg");
     }
 
+    fn gather_includes(&mut self, ast: &Vec<Declaration>) {
+        ast.iter()
+            .for_each(|located| match &located.node {
+                DeclarationKind::Include(path) => {
+                    let context = Context::create();
+                    let mut tc = Compiler::new(&context, &path);
+                    let mut expanded_ast = ast_from_path(&mut tc, &path);
+                    self.macros.extend(tc.macros);
+                }
+                _ => {}
+            });
+    }
+
     fn gather_macros(&mut self, ast: Vec<Declaration>) -> Vec<Declaration> {
         ast.iter()
             .filter_map(|located| match &located.node {
@@ -213,6 +226,7 @@ impl<'ctx> Compiler<'ctx> {
                         },
                     },
                 },
+                _ => decl.to_owned()
             })
             .collect::<Vec<Declaration>>();
 
@@ -348,6 +362,16 @@ impl<'ctx> Compiler<'ctx> {
     fn expand_bindings(&self, expr: Expr, bindings: &HashMap<String, Expr>) -> Expr {
         match expr.node {
             ExprKind::Binding(name) => bindings.get(&name).unwrap().to_owned(),
+            ExprKind::MacroCall { name, args } => Expr {
+                location: expr.location,
+                node: ExprKind::MacroCall { 
+                    name: name.to_string(), 
+                    args: args
+                        .iter()
+                        .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
+                        .collect(),
+                }
+            },
             ExprKind::While {
                 while_exprs,
                 do_block,
@@ -429,6 +453,7 @@ impl<'ctx> Compiler<'ctx> {
                 DeclarationKind::Macro(Macro { name, .. }) => {
                     assert!(false, "macro `{name}` not removed from ast");
                 }
+                _ => {}
             }
         }
         for located in ast.iter() {
@@ -445,6 +470,7 @@ impl<'ctx> Compiler<'ctx> {
                 DeclarationKind::Macro(Macro { name, .. }) => {
                     assert!(false, "macro `{name}` not removed from ast");
                 }
+                _ => {}
             }
         }
     }
@@ -775,13 +801,8 @@ impl<'ctx> Compiler<'ctx> {
     }
 }
 
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-
-    let source_file_path = &args.get(1).expect("file path to compile needed");
-    let should_run = args[1..].contains(&"-j".to_string());
-
-    let input = std::fs::read_to_string(source_file_path).unwrap();
+fn ast_from_path(tc: &mut Compiler, path: &String) -> Vec<Declaration> {
+    let input = std::fs::read_to_string(path).unwrap();
     let lexer = Lexer::new(&input[..]);
     let parser = SourceUnitParser::new();
     let mut errors = Vec::new();
@@ -808,9 +829,7 @@ fn main() {
         })
         .unwrap();
 
-    let context = Context::create();
-    let mut tc = Compiler::new(&context, "main");
-
+    tc.gather_includes(&ast.declarations);
     let ast = tc.gather_macros(ast.declarations);
 
     let mut expanded = true;
@@ -822,7 +841,21 @@ fn main() {
         expanded = was_expanded;
     }
 
-    tc.compile(expanded_ast);
+    expanded_ast
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+
+    let source_file_path = &args.get(1).expect("file path to compile needed");
+    let should_run = args[1..].contains(&"-j".to_string());
+
+    let context = Context::create();
+    let mut tc = Compiler::new(&context, source_file_path);
+
+    let ast = ast_from_path(&mut tc, &source_file_path);
+
+    tc.compile(ast);
 
     // TODO: return final pop of stack.
     // let ret_ty = tc.context.i64_type();

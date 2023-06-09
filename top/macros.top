@@ -1,9 +1,37 @@
-!apply2[$block] { // (m t -- mf tf)
-    $block swap $block swap
+!2[$block] {
+    $block $block
 }
 
-!apply3[$block] { // (b m t -- bf mf tf)
-    $block rot $block rot $block rot
+!3[$block] {
+    !2[{$block}] $block
+}
+
+!4[$block] {
+    !2[$block] !2[$block]
+}
+
+!5[$block] {
+    !4[$block] $block
+}
+
+!6[$block] {
+    !3[$block] !3[$block]
+}
+
+!7[$block] {
+    !4[$block] !3[$block]
+}
+
+!8[$block] {
+    !4[$block] !4[$block]
+}
+
+!9[$block] {
+    !5[$block] !4[$block]
+}
+
+!apply3[$block] {
+    !3[{$block rot}]
 }
 
 !for[$n $e $block] {
@@ -12,13 +40,3 @@
         1 +
     }
 }
-
-!0 { 0 }
-!L { 2 }
-
-:main {
-    !for[!0 { !L 1 + } { 
-        dbg
-    }]
-}
-

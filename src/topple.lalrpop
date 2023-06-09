@@ -22,6 +22,10 @@ Block: Block = {
 }
 
 Declaration: Declaration = {
+    <l:@L> "#include" <path:"string"> <r:@R> => Declaration {
+        location: (l, r),
+        node: DeclarationKind::Include(path)
+    },
     <l:@L> <name:"funcname"> <body:Block> <r:@R> => Declaration {
         location: (l, r),
         node: DeclarationKind::Function {
@@ -171,5 +175,8 @@ extern {
         "macroname" => Token::MacroName(<String>),
 
         "binding" => Token::Binding(<String>),
+
+        "#include" => Token::Include,
+        "string" => Token::LiteralString(<String>),
     }
 }

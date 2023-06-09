@@ -9,6 +9,7 @@ edition = "2021"
 inkwell = { version = "0.2.0", features = ["llvm13-0"] }
 lalrpop-util = { version = "0.20.0", features = ["lexer", "unicode"] }
 logos = "0.13.0"
+snailquote = "0.3.1"
 
 [build-dependencies]
 lalrpop = "0.20.0"

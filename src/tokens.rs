@@ -1,4 +1,5 @@
 use logos::Logos;
+use snailquote::unescape;
 
 #[allow(dead_code)]
 pub enum LexicalError {
@@ -85,4 +86,14 @@ pub enum Token {
 
     #[regex(r"\$\w+", |lex| lex.slice()[1..].to_string())]
     Binding(String),
+
+    #[token("#include")]
+    Include,
+
+    #[regex(r#""(?:[^"]|\\")*""#, |lex| {
+        let string = lex.slice().to_string();
+        let unescaped = unescape(&string).unwrap();
+        unescaped
+    })]
+    LiteralString(String),
 }
