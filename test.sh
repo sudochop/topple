@@ -1,16 +1,6 @@
 #!/bin/bash
+tests=$(find test -type f -name "*.top")
 cargo build
-diff <(./target/debug/topple top/putchar.top -j) <(echo "Hello, world!")
-diff <(./llc.sh putchar) <(echo "Hello, world!")
-diff <(./target/debug/topple top/compare.top -j) <(echo "101010101010")
-diff <(./llc.sh compare) <(echo "101010101010")
-diff <(./target/debug/topple top/conditional.top -j) <(echo "Hello, sailor!")
-diff <(./llc.sh conditional) <(echo "Hello, sailor!")
-diff <(./target/debug/topple top/math.top -j) <(echo "ABCD")
-diff <(./llc.sh math) <(echo "ABCD")
-diff <(./target/debug/topple top/loop.top -j) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
-diff <(./llc.sh loop) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
-diff <(./target/debug/topple top/memory.top -j) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
-diff <(./llc.sh memory) <(echo $'~}|{zyxwvutsrqponmlkjihgfedcba`_^]\\[ZYXWVUTSRQPONMLKJIHGFEDCBA@?>=<;:9876543210/.-,+*)(\'&%$#"! ')
-diff <(./target/debug/topple top/dbg.top -j) <(echo "( 10 20 30 1000 -- )"; echo "( 10 20 30 1000 10 -- )")
-diff <(./llc.sh dbg) <(echo "( 10 20 30 1000 -- )"; echo "( 10 20 30 1000 10 -- )")
+for i in $tests; do
+    ./target/debug/topple "$i" -j | git diff --no-index -- - "$i.stdout"
+done

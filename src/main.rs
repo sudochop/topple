@@ -169,13 +169,14 @@ impl<'ctx> Compiler<'ctx> {
         self.builder.build_call(dbg_fn, &[], "dbg");
     }
 
+    // TODO: This just pulls in macros for the moment.
     fn gather_includes(&mut self, ast: &Vec<Declaration>) {
         ast.iter()
             .for_each(|located| match &located.node {
                 DeclarationKind::Include(path) => {
                     let context = Context::create();
                     let mut tc = Compiler::new(&context, &path);
-                    let mut expanded_ast = ast_from_path(&mut tc, &path);
+                    let _expanded_ast = ast_from_path(&mut tc, &path);
                     self.macros.extend(tc.macros);
                 }
                 _ => {}

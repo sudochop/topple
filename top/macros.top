@@ -30,6 +30,10 @@
     !5[$block] !4[$block]
 }
 
+!apply2[$block] {
+    !2[{$block swap}]
+}
+
 !apply3[$block] {
     !3[{$block rot}]
 }
@@ -40,3 +44,5 @@
         1 +
     }
 }
+
+!nl { 10 putchar }
