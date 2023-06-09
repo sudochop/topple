@@ -37,6 +37,14 @@ Declaration: Declaration = {
             body,
         })
     },
+    <l:@L> <name:"macroname"> <body:Block> <r:@R> => Declaration {
+        location: (l, r),
+        node: DeclarationKind::Macro(Macro {
+            name,
+            args: vec![],
+            body,
+        })
+    },
 }
 
 Binding: String = {
@@ -106,6 +114,10 @@ Expr3: ExprKind = {
     <name:"macroname"> "[" <args:Expr*> "]" => ExprKind::MacroCall {
         name,
         args,
+    },
+    <name:"macroname"> => ExprKind::MacroCall {
+        name,
+        args: vec![],
     },
 
     "binding" => ExprKind::Binding(<>),

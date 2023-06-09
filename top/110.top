@@ -9,9 +9,11 @@
     }
 }
 
-!n4[$block] {
+!4[$block] {
     $block $block $block $block
 }
+
+!SIZE { 50 }
 
 :main {
     :init_first_row
@@ -20,20 +22,20 @@
 }
 
 :init_first_row {
-    !for[0 20 { dup mem + 0 store }]
-    mem 20 + 1 store
-    mem 21 + 0 store
+    !for[0 !SIZE { dup mem + 0 store }]
+    mem !SIZE + 1 store
+    mem !SIZE + 1 + 0 store
 }
 
 :write_next_row {
-    !for[0 20 {
-        !for[1 20 {
-            !n4[{ over }]
-            swap 1 + 22 * +
+    !for[0 !SIZE {
+        !for[1 !SIZE {
+            !4[{ over }]
+            swap 1 + { !SIZE 2 + } * +
             
             rot rot
 
-            swap 22 * +
+            swap { !SIZE 2 + } * +
 
             dup 1 + swap dup 1 -
 
@@ -51,10 +53,10 @@
 }
 
 :print_mem {
-    !for[0 20 {
-        !for[0 21 {
+    !for[0 !SIZE {
+        !for[0 { !SIZE 1 + } {
             over over
-            swap 22 * +
+            swap { !SIZE 2 + } * +
             mem + load
             if { 1 putint } else { 32 putchar }
         }]
