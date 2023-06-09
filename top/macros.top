@@ -9,24 +9,23 @@
 !for[$n $e $block] {
     $n while dup $e < {
         $block
-        1 2 !apply2[{ 1 + }] dbg
-        drop drop
         1 +
     }
 }
 
 :main {
-    !for[0 5 { 
-        1 2 3 !apply3[{ 1 + }] dbg
-        drop drop drop
+    !for[0 2 { 
+        !for[0 2 {
+            !for[0 2 {
+                !for[0 2 {
+                    !for[0 2 {
+                        !for[0 2 {
+                            dbg
+                        }]
+                    }]
+                }]
+            }]
+        }]
     }]
 }
-
-
-// when we have types this can mean something that we actually typecheck
-// :main ( -- i64 ) {
-//     0
-// }
-
-// let ( $a $b $c -- )
 

@@ -239,11 +239,18 @@ impl<'ctx> Compiler<'ctx> {
                     .map(|expr| self.expand_bindings(expr.to_owned(), &bindings))
                     .collect();
 
+                let expansion: Vec<Expr> = ast.iter().map(|expr| {
+                    self.expand_macro(expr.to_owned())
+                }).map(|(e, _b)| e).collect();
+
                 expanded = true;
 
                 Expr {
                     location: expr.location,
-                    node: ExprKind::Block(BlockKind { exprs: ast }),
+                    node: ExprKind::Block(Block {
+                        location: expr.location,
+                        node: BlockKind { exprs: expansion }
+                    })
                 }
             }
             ExprKind::Conditional {
@@ -317,16 +324,19 @@ impl<'ctx> Compiler<'ctx> {
             },
             ExprKind::Block(block) => Expr {
                 location: expr.location,
-                node: ExprKind::Block(BlockKind {
-                    exprs: block
-                        .exprs
-                        .iter()
-                        .map(|expr| {
-                            let (expr, was_expanded) = self.expand_macro(expr.to_owned());
-                            expanded = was_expanded;
-                            expr
-                        })
-                        .collect(),
+                node: ExprKind::Block(Block {
+                    location: block.location,
+                    node: BlockKind {
+                        exprs: block.node
+                            .exprs
+                            .iter()
+                            .map(|expr| {
+                                let (expr, was_expanded) = self.expand_macro(expr.to_owned());
+                                expanded = was_expanded;
+                                expr
+                            })
+                            .collect(),
+                    }
                 }),
             },
             _ => expr,
@@ -393,12 +403,15 @@ impl<'ctx> Compiler<'ctx> {
             },
             ExprKind::Block(block) => Expr {
                 location: expr.location,
-                node: ExprKind::Block(BlockKind {
-                    exprs: block
-                        .exprs
-                        .iter()
-                        .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
-                        .collect(),
+                node: ExprKind::Block(Block {
+                    location: block.location,
+                    node: BlockKind {
+                        exprs: block.node
+                            .exprs
+                            .iter()
+                            .map(|expr| self.expand_bindings(expr.to_owned(), bindings))
+                            .collect(),
+                    }
                 }),
             },
             _ => expr,
@@ -454,7 +467,7 @@ impl<'ctx> Compiler<'ctx> {
                     assert!(false, "macro `{name}` not expanded");
                 }
                 ExprKind::Block(block) => {
-                    self.compile_exprs(&block.exprs);
+                    self.compile_exprs(&block.node.exprs);
                 }
                 ExprKind::Binding(name) => {
                     unimplemented!("binding: `{name}`");
@@ -777,8 +790,10 @@ fn main() {
         .map_err(|e| match e {
             lalrpop_util::ParseError::InvalidToken { .. } => todo!(),
             lalrpop_util::ParseError::UnrecognizedEof { .. } => todo!(),
-            lalrpop_util::ParseError::UnrecognizedToken { token, expected } => {
+            lalrpop_util::ParseError::UnrecognizedToken { token: (start, token, end), expected } => {
                 dbg!(token);
+                dbg!(&input[start - 10..end + 10]);
+                dbg!(&input[start..end]);
                 dbg!(expected);
                 unimplemented!("unrecognized token");
             }
@@ -806,8 +821,6 @@ fn main() {
         expanded_ast = ast;
         expanded = was_expanded;
     }
-
-    // dbg!(&expanded_ast);
 
     tc.compile(expanded_ast);
 

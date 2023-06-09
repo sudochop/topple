@@ -83,7 +83,7 @@ pub enum ExprKind {
         args: Vec<Expr>,
     },
 
-    Block(BlockKind),
+    Block(Block),
 
     Binding(String),
 }

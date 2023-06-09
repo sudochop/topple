@@ -52,11 +52,9 @@ Expr: Expr = {
         location: (l, r),
         node: ExprKind::While { while_exprs, do_block }
     },
-    <l:@L> "{" <exprs:Expr2*> "}" <r:@R> => Expr {
+    <l:@L> <block:Block> <r:@R> => Expr {
         location: (l, r),
-        node: ExprKind::Block(BlockKind {
-            exprs,
-        }),
+        node: ExprKind::Block(block)
     },
     <Expr2> => <>,
 }
