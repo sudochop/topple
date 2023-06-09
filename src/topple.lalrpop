@@ -22,18 +22,18 @@ Block: Block = {
 }
 
 Declaration: Declaration = {
-    <l:@L> "#include" <path:"string"> <r:@R> => Declaration {
+    <l:@L> "include" <path:"string"> <r:@R> => Declaration {
         location: (l, r),
         node: DeclarationKind::Include(path)
     },
-    <l:@L> <name:"funcname"> <body:Block> <r:@R> => Declaration {
+    <l:@L> "fn" <name:"bareword"> <body:Block> <r:@R> => Declaration {
         location: (l, r),
         node: DeclarationKind::Function {
             name,
             body,
         }
     },
-    <l:@L> <name:"macroname"> "[" <args:Binding*> "]" <body:Block> <r:@R> => Declaration {
+    <l:@L> "macro!" <name:"bareword"> "[" <args:Binding*> "]" <body:Block> <r:@R> => Declaration {
         location: (l, r),
         node: DeclarationKind::Macro(Macro {
             name,
@@ -41,7 +41,15 @@ Declaration: Declaration = {
             body,
         })
     },
-    <l:@L> <name:"macroname"> <body:Block> <r:@R> => Declaration {
+    <l:@L> "macro!" <name:"integer"> "[" <args:Binding*> "]" <body:Block> <r:@R> => Declaration {
+        location: (l, r),
+        node: DeclarationKind::Macro(Macro {
+            name: name.to_string(),
+            args,
+            body,
+        })
+    },
+    <l:@L> "macro!" <name:"bareword"> <body:Block> <r:@R> => Declaration {
         location: (l, r),
         node: DeclarationKind::Macro(Macro {
             name,
@@ -113,13 +121,13 @@ Expr3: ExprKind = {
     "store" => ExprKind::Store,
     "load" => ExprKind::Load,
 
-    "funcname" => ExprKind::FnCall(<>),
+    "bareword" => ExprKind::FnCall(<>),
 
-    <name:"macroname"> "[" <args:Expr*> "]" => ExprKind::MacroCall {
+    <name:"macrocall"> "[" <args:Expr*> "]" => ExprKind::MacroCall {
         name,
         args,
     },
-    <name:"macroname"> => ExprKind::MacroCall {
+    <name:"macrocall"> => ExprKind::MacroCall {
         name,
         args: vec![],
     },
@@ -171,12 +179,15 @@ extern {
         "store" => Token::Store,
         "load" => Token::Load,
 
-        "funcname" => Token::FnName(<String>),
-        "macroname" => Token::MacroName(<String>),
+        "fn" => Token::Fn,
+        "bareword" => Token::BareWord(<String>),
+
+        "macro!" => Token::MacroDef,
+        "macrocall" => Token::MacroCall(<String>),
 
         "binding" => Token::Binding(<String>),
 
-        "#include" => Token::Include,
+        "include" => Token::Include,
         "string" => Token::LiteralString(<String>),
     }
 }

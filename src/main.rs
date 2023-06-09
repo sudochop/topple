@@ -2,7 +2,7 @@ mod ast;
 mod lexer;
 mod tokens;
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::{Path, PathBuf}};
 
 use ast::{Block, BlockKind, Declaration, DeclarationKind, Expr, Macro};
 use inkwell::{
@@ -176,7 +176,8 @@ impl<'ctx> Compiler<'ctx> {
                 DeclarationKind::Include(path) => {
                     let context = Context::create();
                     let mut tc = Compiler::new(&context, &path);
-                    let _expanded_ast = ast_from_path(&mut tc, &path);
+                    let path = Path::new(path).with_extension("top");
+                    let _expanded_ast = ast_from_path(&mut tc, path);
                     self.macros.extend(tc.macros);
                 }
                 _ => {}
@@ -802,7 +803,7 @@ impl<'ctx> Compiler<'ctx> {
     }
 }
 
-fn ast_from_path(tc: &mut Compiler, path: &String) -> Vec<Declaration> {
+fn ast_from_path(tc: &mut Compiler, path: PathBuf) -> Vec<Declaration> {
     let input = std::fs::read_to_string(path).unwrap();
     let lexer = Lexer::new(&input[..]);
     let parser = SourceUnitParser::new();
@@ -848,13 +849,15 @@ fn ast_from_path(tc: &mut Compiler, path: &String) -> Vec<Declaration> {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    let source_file_path = &args.get(1).expect("file path to compile needed");
+    let source_file_name = &args.get(1).expect("file path to compile needed");
+    let source_file_path = Path::new(source_file_name);
+    let source_file_pathbuff = source_file_path.to_path_buf();
     let should_run = args[1..].contains(&"-j".to_string());
 
     let context = Context::create();
-    let mut tc = Compiler::new(&context, source_file_path);
+    let mut tc = Compiler::new(&context, source_file_name);
 
-    let ast = ast_from_path(&mut tc, &source_file_path);
+    let ast = ast_from_path(&mut tc, source_file_pathbuff);
 
     tc.compile(ast);
 
@@ -863,7 +866,7 @@ fn main() {
     // let ret_val = ret_ty.const_int(0, false);
     // tc.builder.build_return(Some(&ret_val));
 
-    let source_file_name = Path::file_stem(Path::new(source_file_path)).unwrap();
+    let source_file_name = Path::file_stem(source_file_path).unwrap();
     let mut out_path = Path::new("out").join(source_file_name);
     out_path.set_extension("ll");
 

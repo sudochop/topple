@@ -1,4 +1,4 @@
-:main {
+fn main {
     126
     while dup 31 > {
         dup       // n n

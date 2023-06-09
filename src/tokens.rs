@@ -17,7 +17,7 @@ pub enum Token {
     #[token("while")]
     While,
 
-    #[regex(r"\d+", |lex| lex.slice().parse::<u64>().unwrap())]
+    #[regex(r"\d+", |lex| lex.slice().parse::<u64>().unwrap(), priority = 2)]
     Integer(u64),
 
     #[token("{")]
@@ -78,16 +78,26 @@ pub enum Token {
     #[token("load")]
     Load,
 
-    #[regex(r":\w+", |lex| lex.slice()[1..].to_string())]
-    FnName(String),
+    #[token("fn")]
+    Fn,
 
-    #[regex(r"!\w+", |lex| lex.slice()[1..].to_string())]
-    MacroName(String),
+    #[token("macro!")]
+    MacroDef,
+
+    #[regex(r"\w+", |lex| lex.slice().to_string())]
+    BareWord(String),
+
+    #[regex(r"\w+!", |lex| {
+        let s = lex.slice();
+        s[..s.len()-1].to_string()
+    })]
+    MacroCall(String),
+
 
     #[regex(r"\$\w+", |lex| lex.slice()[1..].to_string())]
     Binding(String),
 
-    #[token("#include")]
+    #[token("include")]
     Include,
 
     #[regex(r#""(?:[^"]|\\")*""#, |lex| {

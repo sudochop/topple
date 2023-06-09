@@ -1,48 +1,48 @@
-!2[$block] {
+macro! 2[$block] {
     $block $block
 }
 
-!3[$block] {
-    !2[{$block}] $block
+macro! 3[$block] {
+    2![{$block}] $block
 }
 
-!4[$block] {
-    !2[$block] !2[$block]
+macro! 4[$block] {
+    2![$block] 2![$block]
 }
 
-!5[$block] {
-    !4[$block] $block
+macro! 5[$block] {
+    4![$block] $block
 }
 
-!6[$block] {
-    !3[$block] !3[$block]
+macro! 6[$block] {
+    3![$block] 3![$block]
 }
 
-!7[$block] {
-    !4[$block] !3[$block]
+macro! 7[$block] {
+    4![$block] 3![$block]
 }
 
-!8[$block] {
-    !4[$block] !4[$block]
+macro! 8[$block] {
+    4![$block] 4![$block]
 }
 
-!9[$block] {
-    !5[$block] !4[$block]
+macro! 9[$block] {
+    5![$block] 4![$block]
 }
 
-!apply2[$block] {
-    !2[{$block swap}]
+macro! apply2[$block] {
+    2![{$block swap}]
 }
 
-!apply3[$block] {
-    !3[{$block rot}]
+macro! apply3[$block] {
+    3![{$block rot}]
 }
 
-!for[$n $e $block] {
+macro! for[$n $e $block] {
     $n while dup $e < {
         $block
         1 +
     }
 }
 
-!nl { 10 putchar }
+macro! nl { 10 putchar }

@@ -1,4 +1,4 @@
-:main {
+fn main {
     1 1 == 48 + putchar // 1
     1 0 == 48 + putchar // 0
 

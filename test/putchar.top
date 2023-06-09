@@ -1,4 +1,4 @@
-:main {
+fn main {
     72  putchar // 'H'
     101 putchar // 'e'
     108 putchar // 'l'

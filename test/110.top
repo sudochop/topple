@@ -1,43 +1,44 @@
-#include "top/macros.top"
+include "top/macros"
 
-!SIZE { 50 }
+macro! SIZE { 50 }
+macro! NL { 10 putchar }
 
-:main {
-    :init_first_row
-    :write_next_row
-    :print_mem
+fn main {
+    init_first_row
+    write_next_row
+    print_mem
 }
 
-:init_first_row {
-    !for[0 !SIZE { dup mem + 0 store }]
-    mem !SIZE + 1 store
-    mem !SIZE + 1 + 0 store
+fn init_first_row {
+    for![0 SIZE! { dup mem + 0 store }]
+    mem SIZE! + 1 store
+    mem SIZE! + 1 + 0 store
 }
 
-:write_next_row {
-    !for[0 !SIZE {
-        !for[1 !SIZE {
-            !4[over]
-            swap 1 + { !SIZE 2 + } * +
-            !2[rot]
-            swap { !SIZE 2 + } * +
+fn write_next_row {
+    for![0 SIZE! {
+        for![1 SIZE! {
+            4![over]
+            swap 1 + { SIZE! 2 + } * +
+            2![rot]
+            swap { SIZE! 2 + } * +
             dup 1 + swap dup 1 -
-            !apply3[{ mem + load }]
-            4 * !2[rot] 2 * + +
+            apply3![{ mem + load }]
+            4 * 2![rot] 2 * + +
             dup 0 == swap dup 4 == swap 7 == or or
             if { drop } else { mem + 1 store }
         }]
     }]
 }
 
-:print_mem {
-    !for[0 !SIZE {
-        !for[0 { !SIZE 1 + } {
-            !2[over]
-            swap { !SIZE 2 + } * +
+fn print_mem {
+    for![0 SIZE! {
+        for![0 { SIZE! 1 + } {
+            2![over]
+            swap { SIZE! 2 + } * +
             mem + load
             if { 1 putint } else { 32 putchar }
         }]
-        !nl
+        NL!
     }]
 }

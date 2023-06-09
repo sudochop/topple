@@ -1,4 +1,4 @@
-:main {
+fn main {
     1 if {
         72  putchar // 'H'
         101 putchar // 'e'

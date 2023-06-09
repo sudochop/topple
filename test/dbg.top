@@ -1,1 +1,1 @@
-:main { 10 20 30 1000 dbg 10 dbg }
+fn main { 10 20 30 1000 dbg 10 dbg }
