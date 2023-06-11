@@ -92,6 +92,7 @@ Expr2: Expr = {
 
 Expr3: ExprKind = {
     "integer" => ExprKind::Integer(<>),
+    "string" => ExprKind::String(<>),
 
     "==" => ExprKind::Eq,
     ">=" => ExprKind::Gte,
@@ -114,8 +115,8 @@ Expr3: ExprKind = {
     "swap" => ExprKind::Swap,
     "over" => ExprKind::Over,
     "rot" => ExprKind::Rot,
-
     "drop" => ExprKind::Drop,
+    "fetch" => ExprKind::Fetch,
 
     "mem" => ExprKind::Mem,
     "store" => ExprKind::Store,
@@ -150,6 +151,7 @@ extern {
         "]" => Token::RBracket,
         
         "integer" => Token::Integer(<u64>),
+        "string" => Token::LiteralString(<String>),
 
         "==" => Token::Eq,
         ">=" => Token::Gte,
@@ -172,8 +174,8 @@ extern {
         "swap" => Token::Swap,
         "over" => Token::Over,
         "rot" => Token::Rot,
-
         "drop" => Token::Drop,
+        "fetch" => Token::Fetch,
 
         "mem" => Token::Mem,
         "store" => Token::Store,
@@ -188,6 +190,5 @@ extern {
         "binding" => Token::Binding(<String>),
 
         "include" => Token::Include,
-        "string" => Token::LiteralString(<String>),
     }
 }

@@ -45,4 +45,16 @@ macro! for[$n $e $block] {
     }
 }
 
-macro! nl { 10 putchar }
+macro! until[$block] {
+    0 while over over > {
+        $block
+        1 +
+    }
+}
+
+macro! putstr[$s] {
+    $s until![{
+        dup 4 fetch + load putchar
+    }]
+}
+    

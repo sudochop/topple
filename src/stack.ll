@@ -43,6 +43,17 @@ define i8* @mem_ptr() {
     ret i8* %addr
 }
 
+define void @fetch(i64 %n) {
+    %sp    = load i64, i64* @sp
+    %back  = sub i64 %sp, %n
+    %addr  = getelementptr [1000000 x i64], [1000000 x i64]* @stack, i64 0, i64 %back
+    %val   = load i64, i64* %addr
+    
+    call void @push(i64 %val)
+    
+    ret void
+}
+
 define void @dbg() {
     call i64 (i64) @putchar(i64 40) ; '('
     call i64 (i64) @putchar(i64 32) ; ' '

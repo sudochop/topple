@@ -67,9 +67,10 @@ pub enum Token {
     Over,
     #[token("rot")]
     Rot,
-
     #[token("drop")]
     Drop,
+    #[token("fetch")]
+    Fetch,
 
     #[token("mem")]
     Mem,

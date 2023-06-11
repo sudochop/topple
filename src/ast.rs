@@ -38,6 +38,7 @@ pub type Declaration = Located<DeclarationKind>;
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExprKind {
     Integer(u64),
+    String(String),
 
     Eq,
     Gte,
@@ -60,8 +61,8 @@ pub enum ExprKind {
     Swap,
     Over,
     Rot,
-
     Drop,
+    Fetch,
 
     Mem,
     Store,

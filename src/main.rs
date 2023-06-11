@@ -65,6 +65,14 @@ impl<'ctx> Compiler<'ctx> {
             module.add_function("pop", fn_type, None)
         };
 
+        // extern fetch
+        let _fetch_fn = {
+            let ret_type = context.void_type();
+            let fn_type =
+                ret_type.fn_type(&[BasicMetadataTypeEnum::IntType(context.i64_type())], false);
+            module.add_function("fetch", fn_type, None)
+        };
+
         // extern putchar
         let _putchar_fn = {
             let ret_type = context.i64_type();
@@ -122,6 +130,13 @@ impl<'ctx> Compiler<'ctx> {
             .left()
             .unwrap()
             .into_int_value()
+    }
+
+    fn fetch(&self, val: IntValue) {
+        let push_fn = self.module.get_function("fetch").unwrap();
+
+        self.builder
+            .build_call(push_fn, &[BasicMetadataValueEnum::IntValue(val)], "fetch");
     }
 
     fn putchar(&self, val: IntValue) {
@@ -502,7 +517,21 @@ impl<'ctx> Compiler<'ctx> {
                 }
                 ExprKind::Integer(i) => {
                     let val = self.context.i64_type().const_int(*i, false);
+                    
                     self.push(val);
+                }
+                ExprKind::String(string) => {
+                    let str_ptr = self.builder.build_global_string_ptr(&string, "string").as_pointer_value();
+                    let str_len = string.len() * std::mem::size_of::<u8>();
+                    
+                    let int_ptr = self.builder.build_ptr_to_int(
+                        str_ptr,
+                        self.context.i64_type(),
+                        "ptr_to_int",
+                    );
+
+                    self.push(int_ptr);
+                    self.push(self.context.i64_type().const_int(str_len as u64, false));                    
                 }
                 ExprKind::Add => {
                     let top = self.pop();
@@ -669,6 +698,11 @@ impl<'ctx> Compiler<'ctx> {
                 }
                 ExprKind::Drop => {
                     self.pop();
+                }
+                ExprKind::Fetch => {
+                    let top = self.pop();
+
+                    self.fetch(top);
                 }
                 ExprKind::Conditional {
                     then_block,

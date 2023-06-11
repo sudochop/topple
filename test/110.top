@@ -1,4 +1,4 @@
-include "top/macros"
+include "top/std"
 
 macro! SIZE { 50 }
 macro! NL { 10 putchar }
